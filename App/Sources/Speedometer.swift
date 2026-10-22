@@ -191,8 +191,9 @@ final class Speedometer {
         pending = Task { [weak self, store] in
             let ways = await store.ways(for: SpeedTile(location.coordinate))
             // A slow tile fetch must not overwrite the limit for a newer fix.
-            guard let self, let ways, lookup == self.lookup else { return }
-            limit = SpeedMatch.nearest(ways, to: location.coordinate, course: course)
+            guard let self, lookup == self.lookup else { return }
+            // Unknown tile (offline, backing off): no sign, not the last tile's limit.
+            limit = ways.flatMap { SpeedMatch.nearest($0, to: location.coordinate, course: course) }
                 .flatMap { Maxspeed.kmh($0.maxspeed) }
             check()
         }

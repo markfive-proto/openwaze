@@ -198,6 +198,28 @@ final class SpeedLimitTests: XCTestCase {
         XCTAssertEqual(meter.limit, 50)
     }
 
+    @MainActor
+    func testUnknownTileClearsLimit() async {
+        let body = Data("""
+        {"elements": [{"type": "way", "tags": {"maxspeed": "50"},
+          "geometry": [{"lat": 3.155, "lon": 101.7116}, {"lat": 3.159, "lon": 101.7116}]}]}
+        """.utf8)
+        var status = 200
+        let store = SpeedLimitStore(directory: nil, fetch: { request in
+            (body, HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
+        })
+        let meter = Speedometer(store: store) {}
+        meter.update(fix(speed: 20))
+        await meter.pending?.value
+        XCTAssertEqual(meter.limit, 50)
+        // Into the next tile, which cannot be fetched: no sign, not the old 50.
+        status = 503
+        meter.update(fix(speed: 20, latitude: 3.1650))
+        await meter.pending?.value
+        XCTAssertNil(meter.limit)
+        XCTAssertFalse(meter.isOver)
+    }
+
     func testMatchBoundaries() {
         let road = [SpeedWay(maxspeed: "60", points: [.init(lat: 0, lon: 0), .init(lat: 0, lon: 0.01)])]
         let metre = 1 / 111_195.0 // degrees of latitude per metre
@@ -209,9 +231,11 @@ final class SpeedLimitTests: XCTestCase {
         XCTAssertNil(SpeedMatch.nearest([], to: point, course: nil))
     }
 
-    private func fix(speed: Double, accuracy: Double = 5, age: TimeInterval = 0) -> CLLocation {
+    private func fix(
+        speed: Double, accuracy: Double = 5, age: TimeInterval = 0, latitude: Double = 3.1579
+    ) -> CLLocation {
         CLLocation(
-            coordinate: .init(latitude: 3.1579, longitude: 101.7116), altitude: 0,
+            coordinate: .init(latitude: latitude, longitude: 101.7116), altitude: 0,
             horizontalAccuracy: accuracy, verticalAccuracy: 5, course: 0, courseAccuracy: 5,
             speed: speed, speedAccuracy: 1, timestamp: Date(timeIntervalSinceNow: -age)
         )
