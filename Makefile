@@ -15,7 +15,7 @@ SPEED ?= 12
 TEAM      ?=
 DEVICE_ID  = $(shell xcrun devicectl list devices 2>/dev/null | grep -m1 -oE "[0-9A-F]{8}-[0-9A-F]{16}|[0-9A-Fa-f-]{36}")
 
-.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop device
+.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop device testflight
 
 bootstrap:
 	git config core.hooksPath scripts/githooks
@@ -54,3 +54,25 @@ device: project
 		DEVELOPMENT_TEAM=$(TEAM) CODE_SIGN_STYLE=Automatic
 	xcrun devicectl device install app --device $(DEVICE_ID) build/Build/Products/Debug-iphoneos/OpenWaze.app
 	xcrun devicectl device process launch --device $(DEVICE_ID) org.openwaze.app
+
+# TestFlight upload. Needs an App Store Connect API key (App Store Connect > Users and Access >
+# Integrations > Team Keys, role App Manager) and an app record for org.openwaze.app.
+#   make testflight TEAM=<team id> ASC_KEY_ID=<key id> ASC_ISSUER_ID=<issuer id> ASC_KEY=~/AuthKey_<id>.p8
+# Build number is the UTC timestamp so every upload is unique. Nothing here is committed.
+ASC_KEY_ID   ?=
+ASC_ISSUER_ID ?=
+ASC_KEY      ?=
+BUILD_NUMBER  = $(shell date -u +%Y%m%d%H%M)
+
+testflight: project
+	@test -n "$(TEAM)" && test -n "$(ASC_KEY_ID)" && test -n "$(ASC_ISSUER_ID)" && test -f "$(ASC_KEY)" \
+		|| { echo "Usage: make testflight TEAM=... ASC_KEY_ID=... ASC_ISSUER_ID=... ASC_KEY=path/to/AuthKey.p8"; exit 1; }
+	xcodebuild archive -project $(PROJECT) -scheme $(SCHEME) -destination "generic/platform=iOS" \
+		-archivePath build/OpenWaze.xcarchive -allowProvisioningUpdates \
+		-authenticationKeyPath "$(abspath $(ASC_KEY))" -authenticationKeyID $(ASC_KEY_ID) -authenticationKeyIssuerID $(ASC_ISSUER_ID) \
+		DEVELOPMENT_TEAM=$(TEAM) CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION=$(BUILD_NUMBER)
+	printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>\n<key>method</key><string>app-store-connect</string>\n<key>destination</key><string>upload</string>\n<key>teamID</key><string>$(TEAM)</string>\n</dict></plist>\n' > build/ExportOptions.plist
+	xcodebuild -exportArchive -archivePath build/OpenWaze.xcarchive -exportOptionsPlist build/ExportOptions.plist \
+		-exportPath build/export -allowProvisioningUpdates \
+		-authenticationKeyPath "$(abspath $(ASC_KEY))" -authenticationKeyID $(ASC_KEY_ID) -authenticationKeyIssuerID $(ASC_ISSUER_ID)
+	@echo "Uploaded build $(BUILD_NUMBER). It appears in App Store Connect > TestFlight after processing (5-15 min)."
