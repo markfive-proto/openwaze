@@ -1,0 +1,41 @@
+name: OpenWaze
+options:
+  bundleIdPrefix: org.openwaze
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  MapLibre:
+    url: https://github.com/maplibre/maplibre-gl-native-distribution
+    exactVersion: 6.31.0
+targets:
+  OpenWaze:
+    type: application
+    platform: iOS
+    sources: [App/Sources]
+    dependencies:
+      - package: MapLibre
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openwaze.app
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: OpenWaze shows your position on the map.
+        TARGETED_DEVICE_FAMILY: "1"
+  OpenWazeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [App/Tests]
+    dependencies:
+      - target: OpenWaze
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  OpenWaze:
+    build:
+      targets:
+        OpenWaze: all
+    test:
+      targets: [OpenWazeTests]
