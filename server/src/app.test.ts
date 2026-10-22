@@ -5,11 +5,12 @@ import { createApp } from './app.ts';
 let clock: number;
 let app: ReturnType<typeof createApp>['app'];
 let cleanup: () => number | bigint;
+let db: ReturnType<typeof createApp>['db'];
 const MIN = 60_000;
 
 beforeEach(() => {
   clock = Date.parse('2026-10-22T10:00:00Z');
-  ({ app, cleanup } = createApp({ dbPath: ':memory:', now: () => clock }));
+  ({ app, cleanup, db } = createApp({ dbPath: ':memory:', now: () => clock }));
 });
 
 const post = (path: string, body: unknown) =>
@@ -304,4 +305,168 @@ test('bbox edge: raw point just outside the edge rounds onto it and is found; fa
   assert.equal(justOut.lat, 2.0001);
   const ids = (await (await box('minLat=1&minLng=103&maxLat=2&maxLng=104')).json()).map((r: { id: string }) => r.id);
   assert.deepEqual(ids.sort(), [onEdge.id, pastEdge.id].sort());
+});
+
+// --- speed probes and live traffic (#13) ---
+
+const sample = (over: Record<string, unknown> = {}) => ({
+  lat: 3.1579, lng: 101.7116, heading: 90, speedKmh: 10, t: new Date(clock).toISOString(), ...over,
+});
+const probe = async (tripId: string, samples: unknown[]) => {
+  const res = await post('/probes', { tripId, samples });
+  return { res, body: await res.json() };
+};
+const trip = () => crypto.randomUUID();
+type Cell = { lat: number; lng: number; heading: number; level: string; speedKmh: number; samples: number };
+const traffic = async (q = 'minLat=3&minLng=101&maxLat=4&maxLng=102'): Promise<Cell[]> =>
+  (await app.request(`/traffic?${q}`)).json();
+const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+
+test('probes: validates body, tripId and samples', async () => {
+  const ok = await probe(trip(), [sample()]);
+  assert.equal(ok.res.status, 202);
+  assert.deepEqual(ok.body, { accepted: 1 });
+  const id = trip();
+  for (const [tripId, samples] of [
+    ['not-a-uuid', [sample()]],
+    ['', [sample()]],
+    [42, [sample()]],
+    [id, []],
+    [id, Array.from({ length: 31 }, () => sample())],
+    [id, 'nope'],
+    [id, [null]],
+    [id, [sample({ lat: 91 })]],
+    [id, [sample({ lng: '101' })]],
+    [id, [sample({ heading: -1 })]],
+    [id, [sample({ heading: 361 })]],
+    [id, [sample({ speedKmh: '10' })]],
+    [id, [sample({ t: 1761127200000 })]],
+    [id, [sample({ t: 'yesterday' })]],
+    [id, [sample({ t: '2026-10-22T10:00:00+08:00' })]],
+  ] as [unknown, unknown][]) {
+    const res = await post('/probes', { tripId, samples });
+    assert.equal(res.status, 400, JSON.stringify({ tripId, samples }).slice(0, 120));
+  }
+  assert.equal((await post('/probes', { tripId: id, samples: [sample()], deviceId: 'dev-a' })).status, 400);
+  assert.equal((await post('/probes', 'not json')).status, 400);
+  assert.equal((await post('/probes', { tripId: id, samples: [sample()], pad: 'x'.repeat(8200) })).status, 413);
+  assert.equal((await probe(id, Array.from({ length: 30 }, (_, i) => sample({ lat: 3 + i / 100 })))).body.accepted, 30);
+});
+
+test('probes: drops samples older than 5 min, in the future, or with speed outside 0..200', async () => {
+  const at = (ms: number, i: number, speedKmh = 10) =>
+    sample({ lat: 3 + i / 100, speedKmh, t: new Date(clock + ms).toISOString() });
+  const { body } = await probe(trip(), [
+    at(-5 * MIN, 0), // kept: exactly 5 min old
+    at(-5 * MIN - 1000, 1), // dropped
+    at(MIN, 2), // kept: within 1 min clock skew
+    at(MIN + 1000, 3), // dropped
+    at(0, 4, 0), // kept
+    at(0, 5, 200), // kept
+    at(0, 6, -1), // dropped
+    at(0, 7, 200.1), // dropped
+  ]);
+  assert.deepEqual(body, { accepted: 4 });
+  assert.equal(count('probes'), 4);
+});
+
+test('traffic: snaps to a 3-decimal cell and 8 heading buckets, no tripId in the response', async () => {
+  const ids = [trip(), trip(), trip()];
+  await probe(ids[0], [sample({ lat: 3.1575, lng: 101.7116, heading: 22 })]);
+  await probe(ids[1], [sample({ lat: 3.15849, lng: 101.71249, heading: 350 })]);
+  await probe(ids[2], [sample({ lat: 3.1579, lng: 101.7115, heading: 360 })]);
+  for (const id of ids) await probe(id, [sample({ lat: 3.1579, lng: 101.7116, heading: 23 })]); // bucket 45
+  const res = await app.request('/traffic?minLat=3&minLng=101&maxLat=4&maxLng=102');
+  const text = await res.text();
+  const cells = (JSON.parse(text) as Cell[]).sort((a, b) => a.heading - b.heading);
+  assert.deepEqual(cells, [
+    { lat: 3.158, lng: 101.712, heading: 0, level: 'jam', speedKmh: 10, samples: 3 },
+    { lat: 3.158, lng: 101.712, heading: 45, level: 'jam', speedKmh: 10, samples: 3 },
+  ]);
+  for (const id of ids) assert.ok(!text.includes(id));
+  assert.ok(!/trip/i.test(text));
+});
+
+test('traffic: a cell needs 3 distinct trips (k-anonymity)', async () => {
+  const a = trip();
+  await probe(a, [sample()]);
+  clock += MIN;
+  await probe(a, [sample()]); // same trip, later minute: 2 samples, still 1 trip
+  await probe(trip(), [sample()]);
+  assert.deepEqual(await traffic(), []);
+  await probe(trip(), [sample()]);
+  const cells = await traffic();
+  assert.equal(cells.length, 1);
+  assert.equal(cells[0].samples, 4);
+});
+
+test('traffic: one trip counts at most once per cell per minute', async () => {
+  const a = trip();
+  assert.equal((await probe(a, Array.from({ length: 30 }, () => sample({ speedKmh: 5 })))).body.accepted, 1);
+  assert.equal((await probe(a, [sample({ speedKmh: 5 })])).body.accepted, 0, 'second post, same minute');
+  await probe(trip(), [sample({ speedKmh: 60 })]);
+  await probe(trip(), [sample({ speedKmh: 60 })]);
+  const [cell] = await traffic();
+  assert.equal(cell.samples, 3);
+  assert.equal(cell.speedKmh, 60);
+  assert.equal(cell.level, 'free');
+});
+
+test('traffic: levels from the median speed, jam < 15, slow < 40, else free', async () => {
+  const cases: [number[], string, number][] = [
+    [[14, 14, 14], 'jam', 14],
+    [[15, 15, 15], 'slow', 15],
+    [[39, 39, 100], 'slow', 39],
+    [[40, 40, 0], 'free', 40],
+    [[10, 20, 30, 40], 'slow', 25], // even count: mean of the middle two
+  ];
+  for (const [i, [speeds]] of cases.entries())
+    for (const speedKmh of speeds) await probe(trip(), [sample({ lat: 3 + i / 10, speedKmh })]);
+  const cells = (await traffic()).sort((a, b) => a.lat - b.lat);
+  assert.deepEqual(
+    cells.map((c) => [c.level, c.speedKmh]),
+    cases.map(([, lvl, kmh]) => [lvl, kmh]),
+  );
+});
+
+test('traffic: samples leave the window at 15 min and cleanup deletes them', async () => {
+  for (let i = 0; i < 3; i++) await probe(trip(), [sample()]);
+  clock += 15 * MIN - 1;
+  assert.equal((await traffic()).length, 1);
+  assert.equal(cleanup(), 3, 'rate-limit rows (1 min) go; samples stay');
+  assert.equal(count('probes'), 3);
+  clock += 1;
+  assert.deepEqual(await traffic(), []);
+  assert.equal(cleanup(), 3);
+  assert.equal(count('probes'), 0);
+  assert.equal(count('probe_posts'), 0);
+});
+
+test('traffic: bbox validated like /reports, cells outside are hidden', async () => {
+  for (const q of [
+    '',
+    'minLat=3&minLng=101&maxLat=4',
+    'minLat=4&minLng=101&maxLat=3&maxLng=102', // inverted
+    'minLat=0&minLng=100&maxLat=3&maxLng=104', // area
+  ])
+    assert.equal((await app.request(`/traffic?${q}`)).status, 400, q);
+  for (let i = 0; i < 3; i++) await probe(trip(), [sample(), sample({ lat: 5.5 })]);
+  assert.equal((await traffic()).length, 1);
+  assert.equal((await traffic('minLat=5&minLng=101&maxLat=6&maxLng=102'))[0].lat, 5.5);
+  assert.deepEqual(await traffic('minLat=3.2&minLng=101&maxLat=5&maxLng=102'), []);
+});
+
+test('probes rate limits: 12 posts per trip per minute, 20 trips per cell per minute', async () => {
+  const a = trip();
+  for (let i = 0; i < 12; i++) assert.equal((await probe(a, [sample({ lat: 3 + i / 100 })])).res.status, 202);
+  assert.equal((await probe(a, [sample()])).res.status, 429);
+  assert.equal((await probe(trip(), [sample()])).res.status, 202, 'other trips unaffected');
+  clock += MIN;
+  assert.equal((await probe(a, [sample({ lat: 3.5 })])).res.status, 202, 'window slides');
+
+  const accepted = [];
+  for (let i = 0; i < 21; i++) accepted.push((await probe(trip(), [sample({ lat: 3.9 })])).body.accepted);
+  assert.deepEqual(accepted, [...Array(20).fill(1), 0]);
+  clock += MIN;
+  assert.equal((await probe(trip(), [sample({ lat: 3.9 })])).body.accepted, 1, 'next minute has room');
 });
