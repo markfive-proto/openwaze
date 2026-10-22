@@ -54,6 +54,12 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 const isLat = (v: unknown): v is number => isNum(v) && v >= -90 && v <= 90;
 const isLng = (v: unknown): v is number => isNum(v) && v >= -180 && v <= 180;
 const isDeviceId = (v: unknown): v is string => typeof v === 'string' && DEVICE_ID.test(v);
+// Round half away from zero to 4 decimals (~11 m). The exponent-string trick rounds on the decimal
+// text, so 1.00005 -> 1.0001 (not 1 via float 10000.4999...), and the result prints with <= 4 decimals.
+const round4 = (v: number) => {
+  const r = Number(`${Math.round(Number(`${Math.abs(v)}e4`))}e-4`);
+  return v < 0 && r !== 0 ? -r : r; // never -0
+};
 const qNum = (s: string | undefined) => (s === undefined || s.trim() === '' ? NaN : Number(s));
 
 export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) {
@@ -168,7 +174,7 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
 
     const id = crypto.randomUUID();
     tx(() => {
-      q.insert.run(id, type, lat, lng, deviceId, t, t + LIFETIME_MS(type as ReportType));
+      q.insert.run(id, type, round4(lat), round4(lng), deviceId, t, t + LIFETIME_MS(type as ReportType));
       q.insertVote.run(id, deviceId, null, t); // author cannot vote on their own report
     });
     return c.json(toReport(q.byId.get(id) as Row), 201);

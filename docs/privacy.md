@@ -13,7 +13,7 @@ Checked against `main` on 2026-10-22.
 
 | Data | Where it goes | Retention | Who can see it | User control |
 |---|---|---|---|---|
-| **Report location** (lat/lng of a hazard report, plus type and time) | Our reports server (`server/src/app.ts`), SQLite `reports` table. Returned to anyone who queries a bbox. | Expires after 30-120 min by type. The row is deleted 1 h after expiry (cleanup runs every 5 min). A report with 2 downvotes expires at once. | Everyone using the API (public by design, no `deviceId`). | None yet. No delete-my-reports endpoint. Reports are short-lived. |
+| **Report location** (lat/lng of a hazard report, rounded to 4 decimals, about 11 m, on write; plus type and time) | Our reports server (`server/src/app.ts`), SQLite `reports` table. Returned to anyone who queries a bbox. | Expires after 30-120 min by type. The row is deleted 1 h after expiry (cleanup runs every 5 min). A report with 2 downvotes expires at once. | Everyone using the API (public by design, no `deviceId`). | None yet. No delete-my-reports endpoint. Reports are short-lived. |
 | **`deviceId`** (client-chosen, 1-128 chars, no accounts) | Same server: `reports.device_id` and `votes.device_id`. Used for rate limits and one-vote-per-report. Never returned by the API. | Reports: as above. Votes: deleted with their report (cascade). | Server operator only. | The client picks it, so a user can rotate it. The app does not send reports yet and no `DeviceID` code exists in `App/Sources`. |
 | **Votes** (still there / gone) | `votes` table, tied to `deviceId` and report | Deleted with the report | Operator only | None yet |
 | **IP address** | Whatever fronts the server (host, reverse proxy, CDN). The app code does not log IPs. `console.error` logs errors only. | **Unknown, set by the host.** Decide before production. | Host operator | None |
@@ -38,9 +38,10 @@ Their rules are in section 5.
 - **G3. Rounding to 2 decimals is about 1.1 km.** That is fine for search bias. It is not
   "anonymous" in a quiet area, and it is not enough for probes (section 5).
 - **G4. No IP or log policy** for the reports server yet.
-- **G5. Report coordinates are exact** and stored with a client-chosen id for up to about
-  1.5 h (flood: 3 h). That is fine for hazards, but it leaves a short pseudonymous trail per
-  `deviceId` on the server. Consider rounding stored coordinates to about 10 m.
+- **G5. Report coordinates (done).** The server rounds lat/lng to 4 decimals (about 11 m) on
+  write, so exact positions are never stored. Reports are still kept with a client-chosen id
+  for up to about 1.5 h (flood: 3 h), so a short pseudonymous trail per `deviceId` remains,
+  now at about 11 m precision.
 
 ## 2. Is anonymous or pseudonymous location data "personal data"?
 

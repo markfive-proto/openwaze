@@ -34,6 +34,7 @@ Timestamps are ISO 8601 UTC with whole seconds (Swift `.iso8601` decodes them).
 Rules:
 - `type` is one of `police`, `accident`, `hazard`, `traffic`, `closure`, `flood`.
 - `lat` -90..90, `lng` -180..180 (JSON numbers). `deviceId` 1-128 chars of `[A-Za-z0-9_-]` (a UUID works).
+- Coordinates are rounded to 4 decimals (about 11 m, half away from zero) when stored; responses and bbox matching use the rounded values. Clients should send plain JSON numbers and expect `lat`/`lng` back with at most 4 decimals.
 - Lifetime 60 min, `traffic` 30 min, `flood` 120 min.
 - `stillThere: true` pushes `expiresAt` to now + the type's lifetime (never shortens it).
 - The 2nd `stillThere: false` removes the report: the response has `downvotes: 2` and `expiresAt` = now, and it no longer appears in queries.
