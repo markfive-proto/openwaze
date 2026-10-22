@@ -23,11 +23,19 @@ targets:
         UIBackgroundModes: [location, audio]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        OPENWAZE_API_URL: $(OPENWAZE_API_URL)
+        # Plain HTTP only to the local dev server (#11); anything else stays HTTPS.
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openwaze.app
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+        # Reports server (server/); override per configuration or on the xcodebuild command line.
+        OPENWAZE_API_URL: http://localhost:8787
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: OpenWaze shows your position on the map.

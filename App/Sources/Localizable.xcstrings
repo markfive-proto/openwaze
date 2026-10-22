@@ -10,10 +10,16 @@
     "%@ · %@": {
       "comment": "Remaining distance · arrival time"
     },
+    "Accident": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
     "At the roundabout, take the %@ exit": {
       "comment": "Argument is an ordinal, e.g. 2nd"
     },
     "Close": {},
+    "Closure": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
     "Continue": {},
     "Continue straight": {},
     "Current location unavailable": {},
@@ -22,6 +28,12 @@
     "Enter the roundabout": {},
     "Exit the roundabout": {},
     "Finding route…": {},
+    "Flood": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
+    "Hazard": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
     "In %@, %@": {
       "comment": "Spoken prompt: distance then lower-cased maneuver, e.g. In 500 m, turn left"
     },
@@ -35,6 +47,9 @@
     "Make a U-turn": {},
     "Merge": {},
     "No route found": {},
+    "Police": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
     "Re-centre": {},
     "right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
@@ -59,6 +74,9 @@
     },
     "Take the exit": {},
     "Take the ramp": {},
+    "Traffic": {
+      "comment": "Crowd report type, shown on the report button and map"
+    },
     "Turn %@": {
       "comment": "Turn left / Turn slight right; argument is a direction word"
     },
