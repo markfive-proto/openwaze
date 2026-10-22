@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ios: ${{ steps.diff.outputs.ios }}
+      server: ${{ steps.diff.outputs.server }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: diff
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # Unknown base (new branch, force push): run everything.
+          if files="$(git diff --name-only "$BASE" HEAD 2>/dev/null)"; then
+            printf '%s\n' "$files"
+          else
+            echo "Cannot diff against base; running all jobs."
+            files="$(printf 'App/\nserver/')"
+          fi
+          match() { printf '%s\n' "$files" | grep -qE "$1" && echo true || echo false; }
+          shared='^\.github/workflows/ci\.yml$'
+          echo "ios=$(match "^(App/|project\.yml$|Makefile$|Brewfile$|\.swiftlint\.yml$)|$shared")" >> "$GITHUB_OUTPUT"
+          echo "server=$(match "^server/|$shared")" >> "$GITHUB_OUTPUT"
+
+  ios:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select newest Xcode
+        run: |
+          xcode="$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+
+      - name: Cache SwiftPM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            build/SourcePackages
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - run: make bootstrap
+      - run: make lint
+      - run: make test
+
+  server:
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci && npm test
+
+  # The single required check: green when every relevant job passed or was skipped.
+  ci-ok:
+    needs: [changes, ios, server]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          IOS: ${{ needs.ios.result }}
+          SERVER: ${{ needs.server.result }}
+        run: |
+          echo "changes=$CHANGES ios=$IOS server=$SERVER"
+          [ "$CHANGES" = success ] || exit 1
+          for r in "$IOS" "$SERVER"; do
+            case "$r" in success|skipped) ;; *) exit 1 ;; esac
+          done
