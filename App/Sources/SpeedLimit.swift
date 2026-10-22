@@ -120,7 +120,7 @@ enum Overpass {
     static func request(for tile: SpeedTile) -> URLRequest {
         var request = URLRequest(url: baseURL)
         request.httpMethod = "POST"
-        request.setValue(Photon.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTP.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         var form = URLComponents()
         form.queryItems = [URLQueryItem(name: "data", value: query(for: tile))]
@@ -140,7 +140,7 @@ enum Overpass {
     }
 
     struct Response: Decodable {
-        let elements: [Photon.Lossy<Element>]
+        let elements: [HTTP.Lossy<Element>]
     }
 
     struct Element: Decodable {

@@ -39,7 +39,7 @@ final class SpeedLimitTests: XCTestCase {
         XCTAssertFalse(body.contains("3.1579"))
         XCTAssertFalse(body.contains("101.7116"))
         XCTAssertTrue(Overpass.query(for: SpeedTile(row: 315, column: 10171)).contains("(3.15,101.71,3.16,101.72)"))
-        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), Photon.userAgent)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), HTTP.userAgent)
     }
 
     func testParsesOverpassAndSkipsBadElements() throws {
