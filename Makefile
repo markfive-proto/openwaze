@@ -5,7 +5,12 @@ SIM_LINE = $(shell xcrun simctl list devices available | grep -m1 -E "^ +iPhone"
 SIM_ID   = $(shell echo "$(SIM_LINE)" | grep -oE "[0-9A-F-]{36}")
 SIM_NAME = $(shell echo "$(SIM_LINE)" | sed -E "s/^ *//; s/ *[(].*[)] *$$//")
 
-.PHONY: bootstrap project test lint
+# Simulator location (#29): KLCC by default; GPX drives live in App/TestData.
+KLCC  := 3.1579,101.7116
+GPX   ?= App/TestData/PJ-city-drive.gpx
+SPEED ?= 12
+
+.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop
 
 bootstrap:
 	git config core.hooksPath scripts/githooks
@@ -23,3 +28,15 @@ test: project
 lint:
 	swiftlint lint --strict
 	swiftformat --lint App
+
+sim-klcc:
+	xcrun simctl location booted set $(KLCC)
+
+# Replays a GPX file's points at a constant SPEED (m/s) on the booted simulator.
+# For the GPX's own timestamps, pick the file in Xcode's scheme (Options > Location) instead.
+sim-drive:
+	grep -oE 'lat="[^"]+" lon="[^"]+"' $(GPX) | sed -E 's/lat="([^"]+)" lon="([^"]+)"/\1,\2/' \
+		| xcrun simctl location booted start --speed=$(SPEED) -
+
+sim-stop:
+	xcrun simctl location booted clear

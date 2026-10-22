@@ -14,6 +14,15 @@ targets:
     sources: [App/Sources]
     dependencies:
       - package: MapLibre
+    # Merged with the generated Info.plist. Background location and audio keep
+    # guidance and spoken prompts going with the screen locked; LocationFeed
+    # only enables background updates while navigating.
+    info:
+      path: App/Info.plist
+      properties:
+        UIBackgroundModes: [location, audio]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openwaze.app
@@ -23,6 +32,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: OpenWaze shows your position on the map.
         TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_EMIT_LOC_STRINGS: YES # String(localized:) keys -> Localizable.xcstrings
   OpenWazeTests:
     type: bundle.unit-test
     platform: iOS
