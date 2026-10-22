@@ -11,4 +11,4 @@ setInterval(cleanupProbes, 60_000).unref();
 // Share-ETA trips: an expired trip and its last position are deleted within a minute.
 setInterval(cleanupTrips, 60_000).unref();
 
-serve({ fetch: app.fetch, port }, (info) => console.log(`openwaze server on http://localhost:${info.port}`));
+serve({ fetch: (r: Request) => { console.log(r.method, r.url); return app.fetch(r); }, port }, (info) => console.log(`openwaze server on http://localhost:${info.port}`));

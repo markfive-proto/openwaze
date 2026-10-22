@@ -162,16 +162,19 @@ struct MapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MLNMapView, didUpdate userLocation: MLNUserLocation?) {
+            guard let location = userLocation?.location else { return }
+            zoom(toFirstFix: location, on: mapView)
+        }
+
+        /// Zooms in once the first usable fix arrives. Only the zoom changes:
+        /// `setCenter(_:zoomLevel:)` would drop `userTrackingMode` to `.none`
+        /// (#50), after which the map never followed the user again.
+        func zoom(toFirstFix location: CLLocation, on map: MLNMapView) {
             guard !zoomedToFirstFix,
                   shown.destination == nil, // don't yank the map off a picked destination
-                  let location = userLocation?.location,
                   Zoom.isUsableFirstFix(location) else { return }
             zoomedToFirstFix = true
-            mapView.setCenter(
-                location.coordinate,
-                zoomLevel: Zoom.level(forAccuracy: location.horizontalAccuracy),
-                animated: animated
-            )
+            map.setZoomLevel(Zoom.level(forAccuracy: location.horizontalAccuracy), animated: animated)
         }
     }
 }
