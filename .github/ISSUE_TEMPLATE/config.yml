@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Map data is wrong
+    url: https://www.openstreetmap.org
+    about: Roads, names and one-ways come from OpenStreetMap. Fix them there.
