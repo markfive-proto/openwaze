@@ -45,6 +45,9 @@ Run `make lint` and `make test` (iOS) or `npm test` (server) before you push.
 
 ## Pick and work an issue
 
+Read [docs/defect-patterns.md](docs/defect-patterns.md) before you start. Add to it after each
+review finding, following its rules.
+
 1. Pick an open issue labelled `agent-ready` with no linked PR. Prefer the current
    `sprint-<date>` label. Comment that you are on it.
 2. One issue per PR. Put `Closes #N` in the PR description.
