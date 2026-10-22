@@ -3,17 +3,19 @@ import SwiftUI
 
 @main
 struct OpenWazeApp: App {
+    private let store = Places.makeContainer()
+
     var body: some Scene {
         WindowGroup {
-            HomeView()
+            HomeView(context: store.container.mainContext, storeFailed: store.error != nil)
                 .fontDesign(.rounded)
                 .tint(Theme.accent)
         }
-        .modelContainer(for: Place.self)
+        .modelContainer(store.container)
     }
 }
 
-/// Map with floating chrome: the bottom panel follows the trip phase
+/// Map with floating chrome: the bottom panel follows `HomeModel.panel`
 /// (search sheet, place card, route preview, driving bar).
 struct HomeView: View {
     private enum Sheet: String, Identifiable {
@@ -23,36 +25,48 @@ struct HomeView: View {
         }
     }
 
-    @Environment(\.modelContext) private var context
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var location = LocationAuthorization()
-    @State private var destination: Destination?
-    @State private var navigator = Navigator()
-    @State private var following = true
-    @State private var recenter = 0
-    @State private var searching = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var location: LocationAuthorization
+    @State private var model: HomeModel
     @State private var sheet: Sheet?
-    @State private var reports = 0
+    /// Height of the collapsed bottom chrome, for the map's route fit and attribution.
     @State private var bottomInset: CGFloat = 0
 
-    private var guiding: Bool {
-        [.navigating, .arrived].contains(navigator.phase)
+    init(context: ModelContext, storeFailed: Bool) {
+        let location = LocationAuthorization()
+        let model = HomeModel(navigator: Navigator(), context: context, origin: { location.coordinate })
+        if storeFailed {
+            model.problem = String(localized: "Saved places couldn't be opened. Changes won't be kept.")
+        }
+        _location = State(initialValue: location)
+        _model = State(initialValue: model)
+    }
+
+    private var navigator: Navigator {
+        model.navigator
     }
 
     var body: some View {
-        MapView(
-            destination: destination, route: navigator.route,
-            navigating: navigator.phase == .navigating, following: following,
-            onUnfollow: { following = false }, recenter: recenter, bottomInset: searching ? 0 : bottomInset
-        )
-        .ignoresSafeArea()
-        .overlay(alignment: .top) { top }
-        .overlay(alignment: .bottom) { bottom }
-        .animation(Theme.spring, value: navigator.phase)
-        .animation(Theme.spring, value: destination)
+        ZStack {
+            MapView(
+                destination: model.destination, route: navigator.route,
+                navigating: navigator.phase == .navigating, following: model.following,
+                onUnfollow: { model.following = false }, recenter: model.recenter, bottomInset: bottomInset
+            )
+            .ignoresSafeArea()
+            VStack(spacing: 0) {
+                top
+                Spacer(minLength: 0)
+                bottom
+            }
+        }
+        .animation(Theme.motion(reduceMotion), value: navigator.phase)
+        .animation(Theme.motion(reduceMotion), value: model.destination)
+        .animation(Theme.motion(reduceMotion), value: model.searching)
         .sheet(item: $sheet) { sheet in
             switch sheet {
-            case .report: ReportSheet(onPick: { _ in reports += 1 }) // posting to the API is #11
+            case .report: ReportSheet(onPick: { _ in }) // posting (and its haptic) is #11
             case .settings: SettingsView()
             }
         }
@@ -63,18 +77,27 @@ struct HomeView: View {
             default: .impact(weight: .medium)
             }
         }
-        .sensoryFeedback(.success, trigger: reports)
-        .onChange(of: navigator.phase) { following = true }
+        .alert(
+            String(localized: "Something went wrong"),
+            isPresented: Binding(get: { model.problem != nil }, set: {
+                if !$0 {
+                    model.problem = nil
+                }
+            }),
+            actions: { Button("OK") {} },
+            message: { Text(model.problem ?? "") }
+        )
+        .onChange(of: navigator.phase) { model.following = true }
         .onAppear { location.request() }
     }
 
     @ViewBuilder private var top: some View {
-        if guiding {
+        if model.guiding {
             if let step = navigator.nextStep, let progress = navigator.progress {
                 ManeuverBanner(step: step, distance: progress.distanceToManeuver)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .transition(Theme.slide(.top, reduceMotion: reduceMotion))
             }
-        } else if !searching {
+        } else if model.showsMenu {
             HStack {
                 Button(String(localized: "Menu"), systemImage: "line.3.horizontal") { sheet = .settings }
                     .buttonStyle(RoundButtonStyle())
@@ -86,8 +109,7 @@ struct HomeView: View {
 
     private var bottom: some View {
         VStack(spacing: 0) {
-            // Hidden while searching and in route preview, where they would cover the route.
-            if !searching, [.idle, .navigating, .arrived].contains(navigator.phase) {
+            if model.showsControls {
                 controls
                     .padding(.horizontal, Theme.Space.large)
                     // Leaves a strip for the map's logo and attribution.
@@ -95,8 +117,13 @@ struct HomeView: View {
                     .transition(.opacity)
             }
             panel
-                .transition(Theme.rise(reduceMotion: reduceMotion))
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottomInset = $0 }
+                .transition(Theme.slide(.bottom, reduceMotion: reduceMotion))
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                    // The expanded search sheet covers the map; keep the collapsed inset.
+                    if !model.searching {
+                        bottomInset = height
+                    }
+                }
         }
     }
 
@@ -104,17 +131,15 @@ struct HomeView: View {
         HStack(alignment: .bottom) {
             SpeedBubble()
             Spacer()
-            VStack(spacing: Theme.Space.medium) {
-                if navigator.phase == .navigating ? !following : navigator.phase == .idle {
-                    Button(String(localized: "Re-centre"), systemImage: "location.fill") {
-                        if navigator.phase == .navigating {
-                            following = true
-                        } else {
-                            recenter += 1
-                        }
-                    }
-                    .buttonStyle(RoundButtonStyle())
-                    .transition(.scale.combined(with: .opacity))
+            // Stacked, or side by side at accessibility sizes to leave room for the map.
+            let buttons = typeSize.isAccessibilitySize
+                ? AnyLayout(HStackLayout(alignment: .bottom, spacing: Theme.Space.medium))
+                : AnyLayout(VStackLayout(spacing: Theme.Space.medium))
+            buttons {
+                if model.showsRecenter {
+                    Button(String(localized: "Re-centre"), systemImage: "location.fill", action: model.recentre)
+                        .buttonStyle(RoundButtonStyle())
+                        .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                 }
                 Button(String(localized: "Report"), systemImage: "exclamationmark.bubble.fill") { sheet = .report }
                     .buttonStyle(RoundButtonStyle(size: Theme.fab, filled: true))
@@ -123,54 +148,43 @@ struct HomeView: View {
     }
 
     @ViewBuilder private var panel: some View {
-        if navigator.phase == .navigating, let progress = navigator.progress {
-            NavigationBar(progress: progress, onEnd: endTrip)
-        } else if navigator.phase != .idle {
-            TripCard(navigator: navigator, onRetry: { navigator.destination.map(go) }, onClose: {
-                if guiding {
-                    endTrip()
-                } else {
-                    navigator.end() // back to the place card
-                }
-            })
-        } else if let destination {
+        switch model.panel {
+        case .driving:
+            if let progress = navigator.progress {
+                NavigationBar(progress: progress, onEnd: model.endTrip)
+            }
+        case .trip:
+            TripCard(navigator: navigator, onStart: model.start, onRetry: model.retry, onClose: model.closeTrip)
+        case let .place(destination):
             DestinationCard(
-                destination: destination, onGo: go,
-                onSave: { try? Places.save(destination, as: $0, in: context) },
-                onClose: { self.destination = nil }
+                destination: destination, onGo: model.go,
+                onSave: { model.save(destination, as: $0) },
+                onClose: { model.destination = nil }
             )
-        } else {
+        case .search:
             VStack(spacing: Theme.Space.medium) {
-                if location.isDenied, !searching {
+                if location.isDenied, !model.searching {
                     LocationHint()
                 }
                 SearchView(
                     near: { location.coordinate },
-                    onPick: { destination = $0 },
-                    onGo: go,
-                    expanded: $searching
+                    onPick: model.pick,
+                    onGo: model.go,
+                    onSave: model.save,
+                    onRemove: model.remove,
+                    expanded: $model.searching
                 )
             }
         }
-    }
-
-    /// Records a recent and previews the route.
-    private func go(_ place: Destination) {
-        destination = place
-        try? Places.recordRecent(place, in: context)
-        Task { await navigator.preview(to: place, from: location.coordinate) }
-    }
-
-    private func endTrip() {
-        navigator.end()
-        destination = nil
     }
 }
 
 /// Current speed; a placeholder until speed and limits land (#15).
 struct SpeedBubble: View {
+    @Scaled private var size: CGFloat = Theme.fab
+
     private var unit: String {
-        Locale.current.measurementSystem == .us ? String(localized: "mph") : String(localized: "km/h")
+        Locale.current.measurementSystem == .metric ? String(localized: "km/h") : String(localized: "mph")
     }
 
     var body: some View {
@@ -178,10 +192,13 @@ struct SpeedBubble: View {
             Text(verbatim: "–").font(.title2.weight(.heavy)).monospacedDigit()
             Text(unit).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
         }
-        .frame(width: Theme.fab, height: Theme.fab)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+        .frame(width: size, height: size)
         .background(Theme.surface, in: Circle())
         .overlay(Circle().strokeBorder(Color.primary.opacity(0.85), lineWidth: 3))
         .shadow(color: Theme.shadow, radius: 10, y: 4)
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // glyph inside a fixed disc
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Speed unavailable"))
     }

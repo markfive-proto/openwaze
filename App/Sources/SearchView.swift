@@ -10,17 +10,26 @@ struct SearchView: View {
     let onPick: (Destination) -> Void
     /// Routes straight to a saved or recent place.
     let onGo: (Destination) -> Void
+    let onSave: (Destination, Place.Role) -> Void
+    let onRemove: (Place) -> Void
     @Binding var expanded: Bool
 
     private enum Status { case idle, loading, done, failed }
 
-    @Environment(\.modelContext) private var context
+    /// Collapsed sheet cap, so the map stays visible; taller content scrolls.
+    private var collapsedMaxHeight: CGFloat {
+        typeSize.isAccessibilitySize ? 200 : 320
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Query(sort: \Place.usedAt, order: .reverse) private var places: [Place]
     @State private var query = ""
     @State private var results: [Destination] = []
     @State private var status = Status.idle
     /// Set by tapping an unset Home/Work: the next pick is saved as it.
     @State private var settingRole: Place.Role?
+    @State private var collapsedHeight: CGFloat = 0
     @FocusState private var focused: Bool
 
     private var trimmedQuery: String {
@@ -48,7 +57,7 @@ struct SearchView: View {
                         .font(.headline)
                         .foregroundStyle(Theme.accent)
                         .frame(minHeight: Theme.tap)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .transition(Theme.slide(.trailing, reduceMotion: reduceMotion))
                 }
             }
             if expanded {
@@ -64,8 +73,12 @@ struct SearchView: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             } else {
-                shortcuts
-                recentRows(Array(recents.prefix(2)))
+                ScrollView {
+                    collapsedContent
+                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { collapsedHeight = $0 }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(height: min(collapsedHeight, collapsedMaxHeight))
             }
         }
         .padding(.horizontal, Theme.Space.large)
@@ -79,7 +92,7 @@ struct SearchView: View {
                 .shadow(color: Theme.shadow, radius: 20, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
-        .animation(Theme.spring, value: expanded)
+        .animation(Theme.motion(reduceMotion), value: expanded)
         .onChange(of: focused) {
             if focused {
                 expanded = true
@@ -125,8 +138,19 @@ struct SearchView: View {
         }
     }
 
+    private var collapsedContent: some View {
+        VStack(spacing: Theme.Space.medium) {
+            shortcuts
+            recentRows(Array(recents.prefix(2)))
+        }
+    }
+
     private var shortcuts: some View {
-        HStack(spacing: Theme.Space.medium) {
+        // Side by side, or stacked at accessibility text sizes.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(spacing: Theme.Space.medium))
+            : AnyLayout(HStackLayout(spacing: Theme.Space.medium))
+        return layout {
             shortcut(.home, title: String(localized: "Home"), icon: "house.fill")
             shortcut(.work, title: String(localized: "Work"), icon: "briefcase.fill")
         }
@@ -136,6 +160,7 @@ struct SearchView: View {
         let place = saved(role)
         return Button {
             if let place {
+                collapse()
                 onGo(place.destination)
             } else {
                 settingRole = role
@@ -143,17 +168,13 @@ struct SearchView: View {
             }
         } label: {
             HStack(spacing: Theme.Space.medium) {
-                Image(systemName: icon)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(Theme.accentFill, in: Circle())
+                IconDisc(icon: icon, foreground: .white, background: Theme.accentFill)
                 VStack(alignment: .leading, spacing: 0) {
                     Text(title).font(.headline).foregroundStyle(.primary)
                     Text(place?.name ?? String(localized: "Set location"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                        .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
                 }
                 Spacer(minLength: 0)
             }
@@ -168,13 +189,13 @@ struct SearchView: View {
     private func recentRows(_ recents: [Place]) -> some View {
         ForEach(recents) { place in
             PlaceRow(icon: "clock.arrow.circlepath", title: place.name, subtitle: place.address) {
+                collapse()
                 onGo(place.destination)
             }
             .contextMenu {
-                Button(String(localized: "Remove"), systemImage: "trash", role: .destructive) {
-                    context.delete(place)
-                }
+                Button(String(localized: "Remove"), systemImage: "trash", role: .destructive) { onRemove(place) }
             }
+            .accessibilityAction(named: Text("Remove")) { onRemove(place) }
         }
     }
 
@@ -184,19 +205,21 @@ struct SearchView: View {
             ForEach(results) { result in
                 PlaceRow(icon: "mappin.and.ellipse", title: result.name, subtitle: result.address) { select(result) }
                     .contextMenu {
-                        Button(String(localized: "Set as Home"), systemImage: "house") { save(result, as: .home) }
-                        Button(String(localized: "Set as Work"), systemImage: "briefcase") { save(result, as: .work) }
+                        Button(String(localized: "Set as Home"), systemImage: "house") { onSave(result, .home) }
+                        Button(String(localized: "Set as Work"), systemImage: "briefcase") { onSave(result, .work) }
                     }
+                    .accessibilityAction(named: Text("Set as Home")) { onSave(result, .home) }
+                    .accessibilityAction(named: Text("Set as Work")) { onSave(result, .work) }
             }
         case .loading, .idle:
             message { ProgressView(); Text("Searching…") }
         case .failed:
             message {
-                Image(systemName: "wifi.exclamationmark")
+                Image(systemName: "wifi.exclamationmark").accessibilityHidden(true)
                 Text("Search unavailable, check connection")
             }
         default:
-            message { Image(systemName: "mappin.slash"); Text("No results") }
+            message { Image(systemName: "mappin.slash").accessibilityHidden(true); Text("No results") }
         }
     }
 
@@ -207,13 +230,9 @@ struct SearchView: View {
             .frame(maxWidth: .infinity, minHeight: Theme.tap * 2)
     }
 
-    private func save(_ destination: Destination, as role: Place.Role) {
-        try? Places.save(destination, as: role, in: context)
-    }
-
     private func select(_ result: Destination) {
         if let settingRole {
-            save(result, as: settingRole)
+            onSave(result, settingRole)
         }
         collapse()
         onPick(result)
@@ -258,11 +277,7 @@ struct PlaceRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: Theme.Space.medium) {
-                Image(systemName: icon)
-                    .font(.headline)
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 40, height: 40)
-                    .background(Theme.surfaceRaised, in: Circle())
+                IconDisc(icon: icon, foreground: Theme.accent, background: Theme.surfaceRaised)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(.headline).foregroundStyle(.primary).lineLimit(2)
                     if !subtitle.isEmpty {
@@ -276,5 +291,23 @@ struct PlaceRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Decorative icon in a filled circle that grows with Dynamic Type.
+struct IconDisc: View {
+    let icon: String
+    let foreground: Color
+    let background: Color
+    @Scaled private var size: CGFloat = 40
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.headline)
+            .foregroundStyle(foreground)
+            .frame(width: size, height: size)
+            .background(background, in: Circle())
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // glyph stays inside the capped disc
+            .accessibilityHidden(true)
     }
 }

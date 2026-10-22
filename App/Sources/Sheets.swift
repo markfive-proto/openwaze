@@ -48,15 +48,18 @@ struct ReportSheet: View {
     let onPick: (ReportType) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var typeSize
+    /// Measured content height, so the sheet fits the grid with no empty space.
+    @State private var height: CGFloat = 400
+    @Scaled private var disc: CGFloat = 64
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Space.large) {
-            HStack {
-                Text("Report").font(.title.weight(.heavy)).accessibilityAddTraits(.isHeader)
-                Spacer()
-                CloseButton { dismiss() }
-            }
-            ScrollView {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Theme.Space.large) {
+                HStack {
+                    Text("Report").font(.title.weight(.heavy)).accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    CloseButton { dismiss() }
+                }
                 LazyVGrid(
                     columns: Array(repeating: GridItem(.flexible(), spacing: Theme.Space.medium),
                                    count: typeSize.isAccessibilitySize ? 2 : 3),
@@ -74,11 +77,13 @@ struct ReportSheet: View {
                     }
                 }
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .padding(.horizontal, Theme.Space.huge)
+            .padding(.top, Theme.Space.huge)
+            .padding(.bottom, Theme.Space.small)
+            .onGeometryChange(for: CGFloat.self, of: \.size.height) { height = $0 }
         }
-        .padding(.horizontal, Theme.Space.huge)
-        .padding(.top, Theme.Space.large)
-        .presentationDetents([.medium, .large])
+        .scrollBounceBehavior(.basedOnSize)
+        .presentationDetents([.height(height)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(Theme.Radius.sheet)
         .presentationBackground(Theme.surface)
@@ -87,16 +92,20 @@ struct ReportSheet: View {
     private func tile(_ category: ReportType) -> some View {
         VStack(spacing: Theme.Space.medium) {
             Image(systemName: category.icon)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: disc * 0.44, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
+                .frame(width: disc, height: disc)
                 .background(category.color, in: Circle())
+                .accessibilityHidden(true)
             Text(category.title)
                 .font(.headline)
                 .foregroundStyle(.primary)
-                .lineLimit(1)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
+        .padding(.vertical, Theme.Space.large)
+        .padding(.horizontal, Theme.Space.tiny)
         .frame(maxWidth: .infinity, minHeight: 128)
         .background(category.color.opacity(0.14),
                     in: RoundedRectangle(cornerRadius: Theme.Radius.tile, style: .continuous))
@@ -104,10 +113,13 @@ struct ReportSheet: View {
 }
 
 private struct TileButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(Theme.spring, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.8 : 1)
+            .animation(Theme.motion(reduceMotion), value: configuration.isPressed)
     }
 }
 
@@ -132,11 +144,15 @@ struct SettingsView: View {
                 }
                 Section {
                     LabeledContent(String(localized: "Version"), value: version)
-                    Link(destination: URL(string: "https://www.openstreetmap.org/copyright")!) {
-                        Label("Map data © OpenStreetMap contributors", systemImage: "map.fill")
+                    if let url = URL(string: "https://www.openstreetmap.org/copyright") {
+                        Link(destination: url) {
+                            Label("Map data © OpenStreetMap contributors", systemImage: "map.fill")
+                        }
                     }
-                    Link(destination: URL(string: "https://github.com/markfive-proto/openwaze")!) {
-                        Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right")
+                    if let url = URL(string: "https://github.com/markfive-proto/openwaze") {
+                        Link(destination: url) {
+                            Label("Source code", systemImage: "chevron.left.forwardslash.chevron.right")
+                        }
                     }
                 } header: {
                     Text("About")

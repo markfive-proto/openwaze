@@ -7,29 +7,22 @@ struct DestinationCard: View {
     let onGo: ((Destination) -> Void)?
     let onSave: (Place.Role) -> Void
     let onClose: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.large) {
-            HStack(alignment: .top, spacing: 0) {
-                VStack(alignment: .leading, spacing: Theme.Space.tiny) {
-                    Text(destination.name).font(.title2.weight(.bold)).lineLimit(2)
-                    Text(destination.address).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+            if typeSize.isAccessibilitySize {
+                HStack(spacing: 0) {
+                    Spacer()
+                    buttons
                 }
-                .accessibilityElement(children: .combine)
-                Spacer(minLength: Theme.Space.small)
-                Menu {
-                    Button(String(localized: "Set as Home"), systemImage: "house") { onSave(.home) }
-                    Button(String(localized: "Set as Work"), systemImage: "briefcase") { onSave(.work) }
-                } label: {
-                    Image(systemName: "star")
-                        .font(.body.weight(.bold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 36, height: 36)
-                        .background(Theme.surfaceRaised, in: Circle())
-                        .frame(width: Theme.tap, height: Theme.tap)
+                title
+            } else {
+                HStack(alignment: .top, spacing: 0) {
+                    title
+                    Spacer(minLength: Theme.Space.small)
+                    buttons
                 }
-                .accessibilityLabel(Text("Save place"))
-                CloseButton(action: onClose)
             }
             Button { onGo?(destination) } label: {
                 Label("Go", systemImage: "arrow.triangle.turn.up.right.diamond.fill")
@@ -43,6 +36,29 @@ struct DestinationCard: View {
         .card()
         .padding(.horizontal, Theme.Space.medium)
     }
+
+    private var title: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.tiny) {
+            Text(destination.name).font(.title2.weight(.bold)).lineLimit(3)
+            Text(destination.address).font(.subheadline).foregroundStyle(.secondary).lineLimit(3)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var buttons: some View {
+        HStack(spacing: 0) {
+            Menu {
+                Button(String(localized: "Set as Home"), systemImage: "house") { onSave(.home) }
+                Button(String(localized: "Set as Work"), systemImage: "briefcase") { onSave(.work) }
+            } label: {
+                StarDisc()
+            }
+            .accessibilityLabel(Text("Save place"))
+            .accessibilityAction(named: Text("Set as Home")) { onSave(.home) }
+            .accessibilityAction(named: Text("Set as Work")) { onSave(.work) }
+            CloseButton(action: onClose)
+        }
+    }
 }
 
 /// Bottom card for the trip phases before and after driving: routing,
@@ -51,6 +67,7 @@ struct TripCard: View {
     let navigator: Navigator
     /// Route uses toll roads; nil hides the badge until the router reports it (#30).
     var tolls: Bool?
+    let onStart: () -> Void
     let onRetry: () -> Void
     let onClose: () -> Void
 
@@ -105,7 +122,7 @@ struct TripCard: View {
                 }
                 CloseButton(action: onClose)
             }
-            Button { navigator.start() } label: {
+            Button(action: onStart) {
                 Label("Start", systemImage: "location.north.fill")
             }
             .buttonStyle(PrimaryButtonStyle())
@@ -141,6 +158,7 @@ private func arrival(_ progress: RouteProgress) -> String {
 struct TollBadge: View {
     var body: some View {
         Label("Toll", systemImage: "dollarsign.circle.fill")
+            .labelStyle(.titleAndIcon)
             .font(.subheadline.weight(.bold))
             .foregroundStyle(Color(hex: 0x8A5A00))
             .padding(.horizontal, Theme.Space.medium)
@@ -158,8 +176,13 @@ struct NavigationBar: View {
         "\(Format.duration(progress.remainingDuration)) · \(Format.distance(progress.remainingDistance))"
     }
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        HStack(spacing: Theme.Space.large) {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Space.medium))
+            : AnyLayout(HStackLayout(spacing: Theme.Space.large))
+        layout {
             VStack(alignment: .leading, spacing: 0) {
                 Text(arrival(progress))
                     .font(.title.weight(.heavy))
@@ -172,10 +195,12 @@ struct NavigationBar: View {
             .minimumScaleFactor(0.7)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text("Arrive at \(arrival(progress)), \(remaining) left"))
-            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize {
+                Spacer(minLength: 0)
+            }
             Button(role: .destructive, action: onEnd) { Text("End") }
                 .buttonStyle(PrimaryButtonStyle(fill: Theme.danger))
-                .fixedSize()
+                .fixedSize(horizontal: !typeSize.isAccessibilitySize, vertical: false)
         }
         .padding(.horizontal, Theme.Space.huge)
         .padding(.vertical, Theme.Space.large)
@@ -188,12 +213,13 @@ struct NavigationBar: View {
 struct ManeuverBanner: View {
     let step: Route.Step
     let distance: Double
+    @Scaled private var icon: CGFloat = 72
 
     var body: some View {
         HStack(spacing: Theme.Space.large) {
             Image(systemName: Instruction.icon(for: step))
-                .font(.system(size: 52, weight: .heavy))
-                .frame(width: 72, height: 72)
+                .font(.system(size: icon * 0.72, weight: .heavy))
+                .frame(width: icon, height: icon)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(Format.distance(distance))
@@ -201,7 +227,7 @@ struct ManeuverBanner: View {
                     .monospacedDigit()
                 Text(Instruction.text(for: step))
                     .font(.title3.weight(.semibold))
-                    .lineLimit(2)
+                    .lineLimit(3)
             }
             Spacer(minLength: 0)
         }
@@ -211,5 +237,22 @@ struct ManeuverBanner: View {
         .shadow(color: Theme.shadow, radius: 16, y: 6)
         .padding(.horizontal, Theme.Space.medium)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Star in a small disc; the 56 pt target comes from the enclosing Menu frame.
+private struct StarDisc: View {
+    @Scaled private var disc: CGFloat = 36
+    @Scaled private var target: CGFloat = Theme.tap
+
+    var body: some View {
+        Image(systemName: "star")
+            .font(.body.weight(.bold))
+            .foregroundStyle(Theme.accent)
+            .frame(width: disc, height: disc)
+            .background(Theme.surfaceRaised, in: Circle())
+            .frame(width: target, height: target)
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+            .accessibilityHidden(true)
     }
 }

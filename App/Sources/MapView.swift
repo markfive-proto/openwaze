@@ -54,29 +54,27 @@ struct MapView: UIViewRepresentable {
         coordinator.shown = state
         coordinator.route = route
         coordinator.onUnfollow = onUnfollow
+        let animated = !context.environment.accessibilityReduceMotion
+        coordinator.animated = animated
+        // Heading-up driving rotates the map constantly; the compass would just sit behind the banner.
+        map.compassView.compassVisibility = navigating ? .hidden : .adaptive
         coordinator.drawRoute(on: map)
         // Keep the OSM attribution and logo visible above the bottom card.
         let bottom = 8 + bottomInset
         map.logoViewMargins = CGPoint(x: 8, y: bottom)
         map.attributionButtonMargins = CGPoint(x: 8, y: bottom)
         if destination != previous.destination {
-            map.removeAnnotations(map.annotations ?? [])
-            if let destination {
-                let pin = MLNPointAnnotation()
-                pin.coordinate = destination.coordinate
-                pin.title = destination.name
-                map.addAnnotation(pin)
-            }
+            Self.pin(destination, on: map)
         }
         if recenter != previous.recenter, !navigating {
-            map.setUserTrackingMode(.follow, animated: true, completionHandler: nil)
+            map.setUserTrackingMode(.follow, animated: animated, completionHandler: nil)
             return
         }
         if navigating {
             guard following, !previous.navigating || !previous.following else { return }
             coordinator.movingCamera = true // our own camera moves are not the user panning
             map.setZoomLevel(17, animated: false)
-            map.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
+            map.setUserTrackingMode(.followWithCourse, animated: animated, completionHandler: nil)
             coordinator.movingCamera = false
         } else if let route {
             guard route.id != previous.route || previous.navigating else { return }
@@ -86,14 +84,25 @@ struct MapView: UIViewRepresentable {
             map.setVisibleCoordinates(
                 &line, count: UInt(line.count),
                 edgePadding: UIEdgeInsets(top: 120, left: 40, bottom: 40 + Theme.fab + bottomInset, right: 40),
-                animated: true
+                animated: animated
             )
         } else if let destination {
             guard destination != previous.destination || previous.route != nil else { return }
             map.userTrackingMode = .none
-            map.setCenter(destination.coordinate, zoomLevel: 16, animated: true)
+            map.setCenter(destination.coordinate, zoomLevel: 16, animated: animated)
         } else {
             map.userTrackingMode = .follow
+        }
+    }
+
+    /// Replaces the destination pin.
+    static func pin(_ destination: Destination?, on map: MLNMapView) {
+        map.removeAnnotations(map.annotations ?? [])
+        if let destination {
+            let pin = MLNPointAnnotation()
+            pin.coordinate = destination.coordinate
+            pin.title = destination.name
+            map.addAnnotation(pin)
         }
     }
 
@@ -102,6 +111,7 @@ struct MapView: UIViewRepresentable {
         var route: Route?
         var onUnfollow: () -> Void = {}
         var movingCamera = false
+        var animated = true
         private var zoomedToFirstFix = false
 
         func mapView(_: MLNMapView, didChange mode: MLNUserTrackingMode, animated _: Bool) {
@@ -110,7 +120,11 @@ struct MapView: UIViewRepresentable {
             DispatchQueue.main.async(execute: onUnfollow) // not during a SwiftUI update
         }
 
-        func mapView(_ mapView: MLNMapView, didFinishLoading _: MLNStyle) {
+        func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
+            // Flat map: 3D buildings hide the road and the route at driving zooms.
+            for layer in style.layers where layer is MLNFillExtrusionStyleLayer {
+                layer.isVisible = false
+            }
             drawRoute(on: mapView) // a route may arrive before the style
         }
 
@@ -149,7 +163,7 @@ struct MapView: UIViewRepresentable {
             mapView.setCenter(
                 location.coordinate,
                 zoomLevel: Zoom.level(forAccuracy: location.horizontalAccuracy),
-                animated: true
+                animated: animated
             )
         }
     }

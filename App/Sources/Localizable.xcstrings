@@ -24,6 +24,7 @@
     "Coming soon": {},
     "Continue": {},
     "Continue straight": {},
+    "Couldn't save the place. Try again.": {},
     "Current location unavailable": {},
     "Dark map": {},
     "Done": {},
@@ -55,6 +56,7 @@
     "mph": {},
     "No results": {},
     "No route found": {},
+    "OK": {},
     "Police": {},
     "Re-centre": {},
     "Remove": {},
@@ -65,6 +67,7 @@
     },
     "Routing unavailable, check connection": {},
     "Save place": {},
+    "Saved places couldn't be opened. Changes won't be kept.": {},
     "Search destination": {},
     "Search for an address to save": {},
     "Search for your home address": {},
@@ -87,6 +90,7 @@
     "slight right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
+    "Something went wrong": {},
     "Source code": {},
     "Speed unavailable": {},
     "Start": {},

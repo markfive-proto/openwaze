@@ -36,17 +36,34 @@ enum Theme {
         static let field: CGFloat = 20
     }
 
-    /// Roughly the height of the bottom card, so the map keeps the route and
-    /// OSM attribution above it.
-    static let bottomCardInset: CGFloat = 190
-
     // MARK: Motion
 
     static let spring = Animation.spring(duration: 0.4, bounce: 0.25)
 
-    /// Slide up from the bottom, or just fade with Reduce Motion on.
-    static func rise(reduceMotion: Bool) -> AnyTransition {
-        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
+    /// The spring, or no animation with Reduce Motion on.
+    static func motion(_ reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : spring
+    }
+
+    /// Slide in from `edge`, or just fade with Reduce Motion on.
+    static func slide(_ edge: Edge, reduceMotion: Bool) -> AnyTransition {
+        reduceMotion ? .opacity : .move(edge: edge).combined(with: .opacity)
+    }
+}
+
+/// A size that grows with Dynamic Type, capped so map controls never swallow the map.
+@propertyWrapper
+struct Scaled: DynamicProperty {
+    @ScaledMetric private var value: CGFloat
+    private let cap: CGFloat
+
+    init(wrappedValue base: CGFloat, max factor: CGFloat = 1.25) {
+        _value = ScaledMetric(wrappedValue: base, relativeTo: .body)
+        cap = base * factor
+    }
+
+    var wrappedValue: CGFloat {
+        min(value, cap)
     }
 }
 
@@ -92,6 +109,7 @@ extension View {
 struct PrimaryButtonStyle: ButtonStyle {
     var fill = Theme.accentFill
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -101,8 +119,9 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(minHeight: Theme.tap)
             .frame(maxWidth: .infinity)
             .background(fill.opacity(isEnabled ? 1 : 0.4), in: Capsule())
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(Theme.spring, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.8 : 1)
+            .animation(Theme.motion(reduceMotion), value: configuration.isPressed)
     }
 }
 
@@ -112,6 +131,23 @@ struct RoundButtonStyle: ButtonStyle {
     var filled = false
 
     func makeBody(configuration: Configuration) -> some View {
+        RoundButton(configuration: configuration, filled: filled, size: size)
+    }
+}
+
+private struct RoundButton: View {
+    let configuration: ButtonStyleConfiguration
+    let filled: Bool
+    @Scaled var size: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(configuration: ButtonStyleConfiguration, filled: Bool, size: CGFloat) {
+        self.configuration = configuration
+        self.filled = filled
+        _size = Scaled(wrappedValue: size)
+    }
+
+    var body: some View {
         configuration.label
             .labelStyle(.iconOnly)
             .font(.system(size: size * 0.4, weight: .bold))
@@ -119,8 +155,9 @@ struct RoundButtonStyle: ButtonStyle {
             .frame(width: size, height: size)
             .background(filled ? Theme.accentFill : Theme.surface, in: Circle())
             .shadow(color: Theme.shadow, radius: 10, y: 4)
-            .scaleEffect(configuration.isPressed ? 0.9 : 1)
-            .animation(Theme.spring, value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.9 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.8 : 1)
+            .animation(Theme.motion(reduceMotion), value: configuration.isPressed)
             .contentShape(Circle())
     }
 }
@@ -128,15 +165,18 @@ struct RoundButtonStyle: ButtonStyle {
 /// Small round close (x) button, still a 56 pt target.
 struct CloseButton: View {
     let action: () -> Void
+    @Scaled private var disc: CGFloat = 36
+    @Scaled private var target: CGFloat = Theme.tap
 
     var body: some View {
         Button(String(localized: "Close"), systemImage: "xmark", action: action)
             .labelStyle(.iconOnly)
             .font(.body.weight(.bold))
             .foregroundStyle(.secondary)
-            .frame(width: 36, height: 36)
+            .frame(width: disc, height: disc)
             .background(Theme.surfaceRaised, in: Circle())
-            .frame(width: Theme.tap, height: Theme.tap)
+            .frame(width: target, height: target)
             .contentShape(Rectangle())
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // glyph stays inside the capped disc
     }
 }
