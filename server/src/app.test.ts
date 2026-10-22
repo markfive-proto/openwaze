@@ -164,3 +164,83 @@ test('vote validates input and unknown ids', async () => {
   assert.equal((await post(`/reports/${r.id}/vote`, 'nope')).status, 400);
   assert.equal((await vote('missing', 'dev-b', true)).res.status, 404);
 });
+
+test('oversized chunked body without Content-Length gets 413', async () => {
+  const chunk = new TextEncoder().encode('x'.repeat(500));
+  const body = new ReadableStream({
+    start(c) {
+      for (let i = 0; i < 4; i++) c.enqueue(chunk);
+      c.close();
+    },
+  });
+  const req = new Request('http://localhost/reports', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+    body,
+    duplex: 'half',
+  } as RequestInit);
+  assert.equal(req.headers.has('content-length'), false);
+  assert.equal((await app.fetch(req)).status, 413);
+});
+
+test('author cannot vote on their own report', async () => {
+  const r = (await create({ deviceId: 'author-1' })).body;
+  assert.equal((await vote(r.id, 'author-1', true)).res.status, 409);
+  assert.equal((await vote(r.id, 'author-1', false)).res.status, 409);
+  const after = await vote(r.id, 'dev-b', true);
+  assert.equal(after.body.upvotes, 1, 'author row does not count as a vote');
+});
+
+test('vote rate limit: 60 per device per hour, author rows not counted', async () => {
+  const ids: string[] = [];
+  for (let d = 0; d < 7; d++) for (let i = 0; i < 10; i++) ids.push((await create({ deviceId: `r${d}` })).body.id);
+  await create({ deviceId: 'voter' });
+  for (let i = 0; i < 60; i++) assert.equal((await vote(ids[i], 'voter', true)).res.status, 200, `vote ${i}`);
+  assert.equal((await vote(ids[60], 'voter', true)).res.status, 429);
+  assert.equal((await vote(ids[60], 'other-voter', true)).res.status, 200);
+  clock += 30 * MIN;
+  const fresh = (await create({ deviceId: 'late' })).body.id;
+  clock += 30 * MIN - 1;
+  assert.equal((await vote(fresh, 'voter', true)).res.status, 429);
+  clock += 1;
+  assert.equal((await vote(fresh, 'voter', true)).res.status, 200, 'window slides at exactly 60 min');
+});
+
+test('report rate window boundary is exactly 60 minutes', async () => {
+  for (let i = 0; i < 10; i++) await create();
+  clock += 60 * MIN - 1;
+  assert.equal((await create()).res.status, 429);
+  clock += 1;
+  assert.equal((await create()).res.status, 201);
+});
+
+test('report is hidden exactly at expiresAt', async () => {
+  const r = (await create()).body;
+  clock += 60 * MIN - 1;
+  assert.equal((await (await box()).json()).length, 1);
+  clock += 1;
+  assert.deepEqual(await (await box()).json(), []);
+  assert.equal((await vote(r.id, 'dev-b', true)).res.status, 404);
+});
+
+test('bbox caps each axis span and accepts a box exactly at the caps', async () => {
+  assert.equal((await box('minLat=0&minLng=0&maxLat=2.5&maxLng=1')).status, 400, 'lat span 2.5, area 2.5');
+  assert.equal((await box('minLat=0&minLng=0&maxLat=1&maxLng=2.5')).status, 400, 'lng span 2.5, area 2.5');
+  assert.equal((await box('minLat=0&minLng=0&maxLat=2&maxLng=2')).status, 200);
+  assert.equal((await box('minLat=1.2&minLng=103.1&maxLat=3.2&maxLng=105.1')).status, 200, 'float subtraction');
+  assert.equal((await box('minLat=0&minLng=0&maxLat=2.001&maxLng=2')).status, 400);
+});
+
+test('deviceId values never appear in create, list or vote responses', async () => {
+  const created = await post('/reports', { type: 'hazard', lat: 1.3, lng: 103.8, deviceId: 'canary-author' });
+  const createText = await created.text();
+  const { id } = JSON.parse(createText);
+  const voteText = await (await post(`/reports/${id}/vote`, { deviceId: 'canary-voter', stillThere: true })).text();
+  const listText = await (await box()).text();
+  assert.ok(listText.includes(id));
+  for (const text of [createText, voteText, listText]) {
+    assert.ok(!text.includes('canary-author'), text);
+    assert.ok(!text.includes('canary-voter'), text);
+    assert.ok(!text.includes('deviceId'), text);
+  }
+});

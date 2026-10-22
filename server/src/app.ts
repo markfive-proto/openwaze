@@ -11,9 +11,12 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const LIFETIME_MS = (t: string) => (t === 'traffic' ? 30 : 60) * MIN;
 const REPORTS_PER_HOUR = 10;
+const VOTES_PER_HOUR = 60;
 const REMOVE_AFTER_DOWNVOTES = 2;
 const MAX_RESULTS = 500;
-const MAX_BBOX_AREA_DEG2 = 4; // roughly 2 x 2 degrees, enough for a zoomed-out city view
+const MAX_BBOX_SPAN_DEG = 2; // per axis, roughly 220 km of latitude
+const MAX_BBOX_AREA_DEG2 = 4; // enough for a zoomed-out city view
+const EPS = 1e-9; // so a box exactly at the cap is not rejected by float subtraction
 const MAX_BODY_BYTES = 1024;
 const DEVICE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -73,9 +76,11 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     CREATE TABLE IF NOT EXISTS votes (
       report_id TEXT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
       device_id TEXT NOT NULL,
-      still_there INTEGER NOT NULL,
+      still_there INTEGER, -- NULL = implicit author row, blocks self-votes and is not rate-counted
+      created_at INTEGER NOT NULL,
       PRIMARY KEY (report_id, device_id)
     );
+    CREATE INDEX IF NOT EXISTS votes_device ON votes (device_id, created_at);
   `);
 
   const q = {
@@ -89,7 +94,13 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     ),
     active: db.prepare(`SELECT ${COLS} FROM reports WHERE id = ? AND expires_at > ?`),
     byId: db.prepare(`SELECT ${COLS} FROM reports WHERE id = ?`),
-    insertVote: db.prepare('INSERT OR IGNORE INTO votes (report_id, device_id, still_there) VALUES (?, ?, ?)'),
+    insertVote: db.prepare(
+      'INSERT OR IGNORE INTO votes (report_id, device_id, still_there, created_at) VALUES (?, ?, ?, ?)',
+    ),
+    // Votes on cleaned-up reports vanish with them, but cleanup lags expiry by an hour, so the window stays intact.
+    recentVotesByDevice: db.prepare(
+      'SELECT COUNT(*) AS n FROM votes WHERE device_id = ? AND created_at > ? AND still_there IS NOT NULL',
+    ),
     upvote: db.prepare('UPDATE reports SET upvotes = upvotes + 1, expires_at = MAX(expires_at, ?) WHERE id = ?'),
     // Reaching the downvote threshold "removes" the report by expiring it now; cleanup deletes it later.
     downvote: db.prepare(
@@ -99,6 +110,18 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     ),
     // Keep rows for an hour past expiry so the per-device hourly rate limit still counts them.
     cleanup: db.prepare('DELETE FROM reports WHERE expires_at < ?'),
+  };
+
+  const tx = <T>(fn: () => T): T => {
+    db.exec('BEGIN');
+    try {
+      const out = fn();
+      db.exec('COMMIT');
+      return out;
+    } catch (e) {
+      db.exec('ROLLBACK');
+      throw e;
+    }
   };
 
   const app = new Hono();
@@ -142,7 +165,10 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     if (n >= REPORTS_PER_HOUR) return c.json({ error: 'rate limit: 10 reports per hour' }, 429);
 
     const id = crypto.randomUUID();
-    q.insert.run(id, type, lat, lng, deviceId, t, t + LIFETIME_MS(type));
+    tx(() => {
+      q.insert.run(id, type, lat, lng, deviceId, t, t + LIFETIME_MS(type));
+      q.insertVote.run(id, deviceId, null, t); // author cannot vote on their own report
+    });
     return c.json(toReport(q.byId.get(id) as Row), 201);
   });
 
@@ -155,7 +181,9 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
       return c.json({ error: 'minLat, maxLat in -90..90 and minLng, maxLng in -180..180 are required' }, 400);
     // ponytail: no antimeridian-crossing boxes (minLng > maxLng); split into two queries client-side if needed.
     if (minLat > maxLat || minLng > maxLng) return c.json({ error: 'min must be <= max' }, 400);
-    if ((maxLat - minLat) * (maxLng - minLng) > MAX_BBOX_AREA_DEG2)
+    if (maxLat - minLat > MAX_BBOX_SPAN_DEG + EPS || maxLng - minLng > MAX_BBOX_SPAN_DEG + EPS)
+      return c.json({ error: `bbox span must be <= ${MAX_BBOX_SPAN_DEG} degrees per axis` }, 400);
+    if ((maxLat - minLat) * (maxLng - minLng) > MAX_BBOX_AREA_DEG2 + EPS)
       return c.json({ error: `bbox area must be <= ${MAX_BBOX_AREA_DEG2} square degrees` }, 400);
     const rows = q.bbox.all(minLat, maxLat, minLng, maxLng, now()) as Row[];
     return c.json(rows.map(toReport));
@@ -172,20 +200,16 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     const t = now();
     const report = q.active.get(id, t) as Row | undefined;
     if (!report) return c.json({ error: 'report not found or expired' }, 404);
+    const { n } = q.recentVotesByDevice.get(deviceId, t - HOUR) as { n: number };
+    if (n >= VOTES_PER_HOUR) return c.json({ error: 'rate limit: 60 votes per hour' }, 429);
 
-    db.exec('BEGIN');
-    try {
-      if (q.insertVote.run(id, deviceId, stillThere ? 1 : 0).changes === 0) {
-        db.exec('ROLLBACK');
-        return c.json({ error: 'already voted on this report' }, 409);
-      }
+    const voted = tx(() => {
+      if (q.insertVote.run(id, deviceId, stillThere ? 1 : 0, t).changes === 0) return false;
       if (stillThere) q.upvote.run(t + LIFETIME_MS(report.type), id);
       else q.downvote.run(t, id);
-      db.exec('COMMIT');
-    } catch (e) {
-      db.exec('ROLLBACK');
-      throw e;
-    }
+      return true;
+    });
+    if (!voted) return c.json({ error: 'already voted on this report' }, 409);
     return c.json(toReport(q.byId.get(id) as Row));
   });
 

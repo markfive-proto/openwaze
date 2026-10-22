@@ -37,10 +37,10 @@ Rules:
 - Lifetime 60 min, `traffic` 30 min.
 - `stillThere: true` pushes `expiresAt` to now + the type's lifetime (never shortens it).
 - The 2nd `stillThere: false` removes the report: the response has `downvotes: 2` and `expiresAt` = now, and it no longer appears in queries.
-- One vote per device per report (`409` on a repeat). Voting on an expired or unknown report is `404`.
-- 10 reports per `deviceId` per rolling hour (`429`).
-- Bbox: `min <= max` on both axes, area at most 4 square degrees. Boxes crossing the antimeridian are not supported.
-- Bodies over 1 KB get `413`. Errors are `{"error": "message"}` with `400`, `404`, `409`, `413` or `429`.
+- One vote per device per report (`409` on a repeat). The reporting device cannot vote on its own report (`409`). Voting on an expired or unknown report is `404`.
+- Per `deviceId`, rolling hour: 10 reports and 60 votes (`429`).
+- Bbox: `min <= max` on both axes, each axis span at most 2 degrees, area at most 4 square degrees. Boxes crossing the antimeridian are not supported.
+- Bodies over 1 KB get `413` (chunked bodies too). Errors are `{"error": "message"}` with `400`, `404`, `409`, `413` or `429`.
 
 ## curl
 
