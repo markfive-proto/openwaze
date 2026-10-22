@@ -118,9 +118,17 @@ jobs:
 
       - run: npm ci
         working-directory: server
+      # Run the BASE branch's copy of the script, so a PR cannot weaken the
+      # check it is judged by. HEAD's copy is used only while base has none.
       - env:
           BASE: ${{ github.event.pull_request.base.sha }}
-        run: scripts/check-test-bites.sh --base "$BASE"
+        run: |
+          script="$RUNNER_TEMP/check-test-bites.sh"
+          if ! git show "$BASE:scripts/check-test-bites.sh" > "$script" 2>/dev/null; then
+            echo "Base has no check-test-bites.sh; using this PR's copy."
+            cp scripts/check-test-bites.sh "$script"
+          fi
+          bash "$script" --base "$BASE"
 
   # The single required check: green when every relevant job passed or was skipped.
   ci-ok:

@@ -9,6 +9,15 @@
 # Server: report storage and data retention.
 /server/src/               @markfive-proto
 
+# Dependencies and build config: lockfile and install changes are reviewed
+# (docs/security/known-vulns.md, actions 1 and 2).
+/server/package.json       @markfive-proto
+/server/package-lock.json  @markfive-proto
+/server/.npmrc             @markfive-proto
+/Brewfile                  @markfive-proto
+/project.yml               @markfive-proto
+**/Package.resolved        @markfive-proto
+
 # The gate itself, and agent/editor config a PR could use to run code
 # (docs/security/known-vulns.md, actions 7 and 10).
 /.github/                  @markfive-proto

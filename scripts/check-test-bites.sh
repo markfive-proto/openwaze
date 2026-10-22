@@ -7,6 +7,10 @@
 #      (a test for code that does not exist yet fails to import; that counts);
 #   2. on HEAD: must PASS.
 # A test that passes on BASE is decorative: it passes with or without the change.
+# Changed files under server/ but outside server/src (test helpers, fixtures,
+# package files) are copied onto BASE too, so a missing helper is not mistaken
+# for a bite. Keep test helpers out of server/src: everything there is treated
+# as the code under test.
 #
 # iOS tests (App/Tests/**) are not checked: that needs two xcodebuild runs on a
 # macOS runner per PR. They are listed so the omission is visible.
@@ -36,12 +40,20 @@ base_sha="$(git merge-base "$base_ref" "$head_sha")" || {
   exit 2
 }
 
-changed="$(git diff --name-only --diff-filter=AM "$base_sha" "$head_sha")"
-tests="$(printf '%s\n' "$changed" | grep -E '^server/src/.*\.test\.ts$' || true)"
-ios="$(printf '%s\n' "$changed" | grep -E '^App/Tests/' || true)"
-[ -z "$ios" ] || printf 'Not checked (iOS bite check is not automated):\n%s\n' "$ios" >&2
+# NUL-separated, no rename pairing: a renamed-and-edited test counts as added.
+tests=() support=() ios=()
+while IFS= read -r -d '' f; do
+  case "$f" in
+    server/src/*.test.ts) tests+=("$f") ;;
+    server/src/*) ;;             # the code under test: stays at base
+    server/*) support+=("$f") ;; # test helpers, fixtures, package files
+    App/Tests/*) ios+=("$f") ;;
+  esac
+done < <(git -c core.quotePath=off diff --no-renames -z --name-only --diff-filter=AM "$base_sha" "$head_sha")
 
-if [ -z "$tests" ]; then
+[ "${#ios[@]}" -eq 0 ] || printf 'Not checked (iOS bite check is not automated):\n%s\n' "${ios[@]}" >&2
+
+if [ "${#tests[@]}" -eq 0 ]; then
   echo "No changed server test files between ${base_sha:0:12} and ${head_sha:0:12}."
   exit 0
 fi
@@ -70,10 +82,13 @@ run_test() { # $1 worktree, $2 repo-relative test path
   (cd "$1/server" && node --test "${2#server/}") >"$tmp/log" 2>&1
 }
 
+for f in "${tests[@]}" "${support[@]}"; do
+  mkdir -p "$tmp/base/$(dirname "$f")"
+  git show "$head_sha:$f" >"$tmp/base/$f"
+done
+
 bad=0
-while IFS= read -r t; do
-  mkdir -p "$tmp/base/$(dirname "$t")"
-  git show "$head_sha:$t" >"$tmp/base/$t"
+for t in "${tests[@]}"; do
   if run_test "$tmp/base" "$t"; then
     echo "DECORATIVE: $t passes on base ${base_sha:0:12} without this change. Make it test the new behaviour." >&2
     bad=1
@@ -84,5 +99,5 @@ while IFS= read -r t; do
   else
     echo "bites: $t (fails on base, passes on head)"
   fi
-done <<<"$tests"
+done
 exit "$bad"
