@@ -117,7 +117,7 @@ struct DestinationCard: View {
     static let height: CGFloat = 110 // approx, used to keep map attribution visible
 
     let destination: Destination
-    /// Starts navigation. Nil until routing (#10) lands; Go shows disabled.
+    /// Fetches and previews a route. Nil shows Go disabled.
     let onGo: ((Destination) -> Void)?
     let onClose: () -> Void
 
