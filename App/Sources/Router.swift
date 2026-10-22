@@ -16,6 +16,8 @@ struct Route {
     }
 
     let id = UUID() // lets the map tell routes apart cheaply
+    /// Extra seconds from live traffic (#13) on top of OSRM's free-flow `duration`.
+    var trafficDelay = 0.0
     let coordinates: [CLLocationCoordinate2D]
     let steps: [Step]
     let distance: Double
@@ -24,6 +26,11 @@ struct Route {
     let along: [Double]
     /// Metres from the start to each step's maneuver.
     let stepStart: [Double]
+
+    /// Travel time with live traffic.
+    var eta: Double {
+        duration + trafficDelay
+    }
 
     init(coordinates: [CLLocationCoordinate2D], steps: [Step], distance: Double, duration: Double) {
         self.coordinates = coordinates
@@ -65,11 +72,15 @@ enum Router {
     /// Swap this for a self-hosted router before release.
     static let baseURL = URL(string: "https://router.project-osrm.org/")!
 
-    static func route(
+    /// Most routes shown to the driver: the best plus two alternatives.
+    static let maxRoutes = 3
+
+    /// The best route first, then up to two alternatives.
+    static func routes(
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D,
         fetch: Fetch = { try await URLSession.shared.data(for: $0) }
-    ) async throws -> Route {
+    ) async throws -> [Route] {
         var request = URLRequest(url: url(from: origin, to: destination))
         request.setValue(HTTP.userAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await fetch(request)
@@ -92,22 +103,29 @@ enum Router {
             URLQueryItem(name: "overview", value: "full"),
             URLQueryItem(name: "geometries", value: "geojson"),
             URLQueryItem(name: "annotations", value: "false"),
+            URLQueryItem(name: "alternatives", value: String(maxRoutes)),
         ]
         return components.url!
     }
 
-    /// Parses the first route of an OSRM response. Malformed points and
-    /// steps are skipped rather than failing the whole route.
-    static func parse(_ data: Data) throws -> Route {
+    /// Parses up to `maxRoutes` routes of an OSRM response. A malformed route,
+    /// point or step is skipped rather than failing the whole response.
+    static func parse(_ data: Data) throws -> [Route] {
         let response = try JSONDecoder().decode(Response.self, from: data)
-        guard response.code == "Ok", let route = response.routes?.first?.value else {
+        guard response.code == "Ok", let candidates = response.routes?.compactMap(\.value), !candidates.isEmpty else {
             throw RouterError.noRoute(code: response.code ?? "Unknown")
         }
+        let routes = candidates.compactMap(build).prefix(maxRoutes)
+        guard !routes.isEmpty else { throw RouterError.noRoute(code: "NoGeometry") }
+        return Array(routes)
+    }
+
+    private static func build(_ route: RouteDTO) -> Route? {
         let coordinates = route.geometry.coordinates.compactMap { pair -> CLLocationCoordinate2D? in
             guard pair.count >= 2 else { return nil }
             return CLLocationCoordinate2D(latitude: pair[1], longitude: pair[0])
         }
-        guard coordinates.count >= 2 else { throw RouterError.noRoute(code: "NoGeometry") }
+        guard coordinates.count >= 2 else { return nil }
         let steps = (route.legs ?? []).flatMap { $0.steps ?? [] }.compactMap { lossy -> Route.Step? in
             guard let step = lossy.value, step.maneuver.location.count >= 2 else { return nil }
             return Route.Step(

@@ -25,7 +25,7 @@ final class RouterTests: XCTestCase {
     """.utf8)
 
     func testParsesRouteAndSkipsBadPointsAndSteps() throws {
-        let route = try Router.parse(fixture)
+        let route = try XCTUnwrap(Router.parse(fixture).first)
         XCTAssertEqual(route.coordinates.count, 4)
         XCTAssertEqual(route.coordinates[0].latitude, 3.103637)
         XCTAssertEqual(route.coordinates[0].longitude, 101.640633)
@@ -64,7 +64,7 @@ final class RouterTests: XCTestCase {
     """.utf8)
 
     func testLoopedRouteKeepsStepsApart() throws {
-        let route = try Router.parse(looped)
+        let route = try XCTUnwrap(Router.parse(looped).first)
         XCTAssertEqual(route.stepStart, [0, route.along[1], route.along[5], route.along[6]])
         XCTAssertEqual(Set(route.stepStart).count, 4, "no two steps collapsed onto one vertex")
     }
@@ -93,18 +93,39 @@ final class RouterTests: XCTestCase {
         XCTAssertEqual(
             Router.url(from: klcc, to: klia).absoluteString,
             "https://router.project-osrm.org/route/v1/driving/101.7116,3.1579;101.7072,2.7456"
-                + "?steps=true&overview=full&geometries=geojson&annotations=false"
+                + "?steps=true&overview=full&geometries=geojson&annotations=false&alternatives=3"
         )
     }
 
     func testRouteSendsUserAgentAndParses() async throws {
         var sent: URLRequest?
-        let route = try await Router.route(from: .init(), to: .init()) { request in
+        let routes = try await Router.routes(from: .init(), to: .init()) { request in
             sent = request
             return (self.fixture, Self.response(status: 200))
         }
         XCTAssertEqual(sent?.value(forHTTPHeaderField: "User-Agent"), HTTP.userAgent)
-        XCTAssertEqual(route.steps.count, 4)
+        XCTAssertEqual(routes.first?.steps.count, 4)
+    }
+
+    private static func osrm(_ routes: [String]) -> Data {
+        Data(#"{"code": "Ok", "routes": [\#(routes.joined(separator: ","))]}"#.utf8)
+    }
+
+    private static func line(duration: Int) -> String {
+        #"{"distance": 100, "duration": \#(duration), "geometry": {"coordinates": [[101.0, 3.0], [101.001, 3.0]]}}"#
+    }
+
+    func testParsesAlternativesInOrderAndCapsAtThree() throws {
+        for count in [1, 2, 3, 4] { // just inside, at and just over the cap
+            let data = Self.osrm((1 ... count).map { Self.line(duration: $0 * 10) })
+            XCTAssertEqual(try Router.parse(data).map(\.duration), (1 ... min(count, 3)).map { Double($0 * 10) })
+        }
+    }
+
+    func testABadAlternativeIsSkippedNotFatal() throws {
+        let bad = #"{"distance": 1, "duration": 1, "geometry": {"coordinates": [[1, 2]]}}"#
+        let routes = try Router.parse(Self.osrm([Self.line(duration: 10), bad, Self.line(duration: 30)]))
+        XCTAssertEqual(routes.map(\.duration), [10, 30])
     }
 
     func testRouteMapsHTTPErrors() async {
@@ -114,7 +135,7 @@ final class RouterTests: XCTestCase {
             (Data("Too Many Requests".utf8), 429, RouterError.http(status: 429)),
         ] {
             do {
-                _ = try await Router.route(from: .init(), to: .init()) { _ in (body, Self.response(status: status)) }
+                _ = try await Router.routes(from: .init(), to: .init()) { _ in (body, Self.response(status: status)) }
                 XCTFail("expected an error")
             } catch {
                 XCTAssertEqual(error as? RouterError, expected)

@@ -179,6 +179,17 @@ struct ReportsClient {
         return try await Self.parse(send(URLRequest(url: components.url!)))
     }
 
+    func traffic(_ bbox: BBox) async throws -> [TrafficReading] {
+        var components = try URLComponents(url: endpoint("traffic"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "minLat", value: String(bbox.minLat)),
+            URLQueryItem(name: "minLng", value: String(bbox.minLng)),
+            URLQueryItem(name: "maxLat", value: String(bbox.maxLat)),
+            URLQueryItem(name: "maxLng", value: String(bbox.maxLng)),
+        ]
+        return try await Traffic.parse(send(URLRequest(url: components.url!)))
+    }
+
     func vote(_ id: String, stillThere: Bool) async throws -> Report {
         let request = try post("reports/\(id)/vote", ["deviceId": device(), "stillThere": stillThere])
         return try await Self.decode(Report.self, send(request))
