@@ -4,12 +4,14 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const TYPES = ['police', 'accident', 'hazard', 'traffic', 'closure'] as const;
-type ReportType = (typeof TYPES)[number];
+// Lifetime in minutes per report type; the single source for the type enum too.
+const LIFETIME_MIN = { police: 60, accident: 60, hazard: 60, traffic: 30, closure: 60, flood: 120 } as const;
+type ReportType = keyof typeof LIFETIME_MIN;
+const TYPES = Object.keys(LIFETIME_MIN) as ReportType[];
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
-const LIFETIME_MS = (t: string) => (t === 'traffic' ? 30 : 60) * MIN;
+const LIFETIME_MS = (t: ReportType) => LIFETIME_MIN[t] * MIN;
 const REPORTS_PER_HOUR = 10;
 const VOTES_PER_HOUR = 60;
 const REMOVE_AFTER_DOWNVOTES = 2;
@@ -166,7 +168,7 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
 
     const id = crypto.randomUUID();
     tx(() => {
-      q.insert.run(id, type, lat, lng, deviceId, t, t + LIFETIME_MS(type));
+      q.insert.run(id, type, lat, lng, deviceId, t, t + LIFETIME_MS(type as ReportType));
       q.insertVote.run(id, deviceId, null, t); // author cannot vote on their own report
     });
     return c.json(toReport(q.byId.get(id) as Row), 201);

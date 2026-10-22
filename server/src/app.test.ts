@@ -50,6 +50,27 @@ test('traffic reports live 30 minutes', async () => {
   assert.equal(body.expiresAt, '2026-10-22T10:30:00Z');
 });
 
+test('flood reports live 120 minutes, hidden exactly at expiry', async () => {
+  const { res, body } = await create({ type: 'flood' });
+  assert.equal(res.status, 201);
+  assert.equal(body.type, 'flood');
+  assert.equal(body.expiresAt, '2026-10-22T12:00:00Z');
+  clock += 120 * MIN - 1;
+  assert.equal((await (await box()).json()).length, 1);
+  clock += 1;
+  assert.deepEqual(await (await box()).json(), []);
+  assert.equal((await vote(body.id, 'dev-b', true)).res.status, 404);
+});
+
+test('still-there vote on flood extends to now + 120 minutes', async () => {
+  const r = (await create({ type: 'flood' })).body;
+  clock += 90 * MIN;
+  const { res, body } = await vote(r.id, 'dev-b', true);
+  assert.equal(res.status, 200);
+  assert.equal(body.upvotes, 1);
+  assert.equal(body.expiresAt, '2026-10-22T13:30:00Z');
+});
+
 test('create rejects invalid input', async () => {
   const bad = [
     { type: 'ufo' },

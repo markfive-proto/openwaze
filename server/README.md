@@ -32,9 +32,9 @@ Timestamps are ISO 8601 UTC with whole seconds (Swift `.iso8601` decodes them).
 | POST | `/reports/:id/vote` | `{deviceId, stillThere}` | `200` updated report |
 
 Rules:
-- `type` is one of `police`, `accident`, `hazard`, `traffic`, `closure`.
+- `type` is one of `police`, `accident`, `hazard`, `traffic`, `closure`, `flood`.
 - `lat` -90..90, `lng` -180..180 (JSON numbers). `deviceId` 1-128 chars of `[A-Za-z0-9_-]` (a UUID works).
-- Lifetime 60 min, `traffic` 30 min.
+- Lifetime 60 min, `traffic` 30 min, `flood` 120 min.
 - `stillThere: true` pushes `expiresAt` to now + the type's lifetime (never shortens it).
 - The 2nd `stillThere: false` removes the report: the response has `downvotes: 2` and `expiresAt` = now, and it no longer appears in queries.
 - One vote per device per report (`409` on a repeat). The reporting device cannot vote on its own report (`409`). Voting on an expired or unknown report is `404`.
