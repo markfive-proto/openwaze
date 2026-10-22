@@ -265,3 +265,43 @@ test('deviceId values never appear in create, list or vote responses', async () 
     assert.ok(!text.includes('deviceId'), text);
   }
 });
+
+test('create rounds lat/lng to 4 decimals, half away from zero, no float artefacts', async () => {
+  const cases: [number, number, number, number][] = [
+    [3.15789999999, 101.71164999, 3.1579, 101.7116],
+    [3.15785, -101.71165, 3.1579, -101.7117],
+    [-1.00005, 0.00004, -1.0001, 0],
+    [-0.00004, 1.3, 0, 1.3],
+  ];
+  for (const [lat, lng, wantLat, wantLng] of cases) {
+    const { res, body } = await create({ lat, lng });
+    assert.equal(res.status, 201);
+    assert.equal(body.lat, wantLat);
+    assert.equal(body.lng, wantLng);
+    assert.ok(!Object.is(body.lat, -0) && !Object.is(body.lng, -0));
+  }
+});
+
+test('responses carry at most 4 decimals in raw JSON (create, list, vote)', async () => {
+  const { body } = await create({ lat: 3.15790000001, lng: 101.711600000049 });
+  const decimals = /"(?:lat|lng)":-?\d+(?:\.(\d+))?/g;
+  const check = (json: string) => {
+    const hits = [...json.matchAll(decimals)];
+    assert.equal(hits.length >= 2, true);
+    for (const m of hits) assert.ok((m[1] ?? '').length <= 4, m[0]);
+  };
+  check(JSON.stringify(body));
+  check(await (await box('minLat=3&minLng=101&maxLat=4&maxLng=102')).text());
+  check(JSON.stringify((await vote(body.id, 'dev-b', true)).body));
+});
+
+test('bbox edge: raw point just outside the edge rounds onto it and is found; far side stays out', async () => {
+  const onEdge = (await create({ lat: 1.99996, lng: 103.5 })).body; // raw < maxLat, stored as 2
+  const pastEdge = (await create({ lat: 2.00004, lng: 103.5 })).body; // raw > maxLat, stored as 2
+  const justOut = (await create({ lat: 2.00006, lng: 103.5 })).body; // stored as 2.0001
+  assert.equal(onEdge.lat, 2);
+  assert.equal(pastEdge.lat, 2);
+  assert.equal(justOut.lat, 2.0001);
+  const ids = (await (await box('minLat=1&minLng=103&maxLat=2&maxLng=104')).json()).map((r: { id: string }) => r.id);
+  assert.deepEqual(ids.sort(), [onEdge.id, pastEdge.id].sort());
+});
