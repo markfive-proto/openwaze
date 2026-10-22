@@ -1,0 +1,39 @@
+# Daily report of stalled agent-loop work into the pinned "Agent watchdog"
+# issue (#6). Runs scripts/watchdog.mjs from main; reads PRs, checks and
+# issues, and writes only that one issue. See docs/security/known-vulns.md,
+# actions 5 and 6.
+name: Agent watchdog
+
+on:
+  schedule:
+    - cron: "17 1 * * *" # 09:17 Malaysia time
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # checkout and remote branch list
+      issues: write # edit, create and pin the "Agent watchdog" issue
+      pull-requests: read # gh pr list: reviews
+      checks: read # gh pr list: ci-ok status
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # every remote branch, for the "no PR" check
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/watchdog.mjs
