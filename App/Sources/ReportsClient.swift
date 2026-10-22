@@ -23,7 +23,7 @@ enum ReportType: String, CaseIterable, Codable, Identifiable {
     /// SF Symbol name; the UI layer renders it.
     var symbol: String {
         switch self {
-        case .police: "light.beacon.max.fill"
+        case .police: "shield.lefthalf.filled"
         case .accident: "car.side.rear.and.collision.and.car.side.front"
         case .hazard: "exclamationmark.triangle.fill"
         case .traffic: "car.2.fill"
@@ -100,9 +100,9 @@ struct BBox: Equatable {
         return BBox(minLat: lat.low, minLng: lng.low, maxLat: lat.high, maxLng: lng.high)
     }
 
-    private static func fit(_ low: Double, _ high: Double, within limit: ClosedRange<Double>)
-        -> (low: Double, high: Double)
-    {
+    private static func fit(
+        _ low: Double, _ high: Double, within limit: ClosedRange<Double>
+    ) -> (low: Double, high: Double) {
         var (low, high) = (low, high)
         if high - low > maxSpan {
             let mid = (low + high) / 2
@@ -143,7 +143,7 @@ struct ReportsClient {
     /// defaults to the local dev server; Release has no default, so a
     /// missing value is a loud failure, never a silent call to loopback.
     static let baseURL: URL? = {
-        let url = url(from: Bundle.main.object(forInfoDictionaryKey: "OPENWAZE_API_URL") as? String)
+        let url = Self.url(from: Bundle.main.object(forInfoDictionaryKey: "OPENWAZE_API_URL") as? String)
         if url == nil {
             assertionFailure("OPENWAZE_API_URL is not set for this build configuration")
         }
@@ -162,8 +162,8 @@ struct ReportsClient {
     }
 
     func create(_ type: ReportType, at coordinate: CLLocationCoordinate2D) async throws -> Report {
-        let body: [String: Any] = [
-            "type": type.rawValue, "lat": coordinate.latitude, "lng": coordinate.longitude, "deviceId": try device(),
+        let body: [String: Any] = try [
+            "type": type.rawValue, "lat": coordinate.latitude, "lng": coordinate.longitude, "deviceId": device(),
         ]
         return try await Self.decode(Report.self, send(post("reports", body)))
     }

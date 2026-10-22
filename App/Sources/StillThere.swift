@@ -23,9 +23,9 @@ struct StillThere {
     /// within `lateral` metres of it. Reports behind the driver, or only near
     /// a later pass over the same road, are ignored, as are drafts and the
     /// device's own reports (`mine`), which the server won't take votes on.
-    static func nextAhead(on route: Route, at progress: RouteProgress, reports: [Report],
-                          mine: Set<String> = []) -> Report?
-    {
+    static func nextAhead(
+        on route: Route, at progress: RouteProgress, reports: [Report], mine: Set<String> = []
+    ) -> Report? {
         let along = route.along
         guard along.count >= 2, let total = along.last else { return nil }
         let travelled = total - progress.remainingDistance

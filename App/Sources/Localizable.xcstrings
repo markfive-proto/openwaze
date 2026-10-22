@@ -4,36 +4,47 @@
     "%@ onto %@": {
       "comment": "Maneuver then road name, e.g. Turn left onto Jalan Ampang"
     },
+    "%@ still there?": {
+      "comment": "Prompt while driving towards a crowd report, e.g. Police still there?"
+    },
     "%@ towards %@": {
       "comment": "Maneuver then signposted destination, e.g. Take the exit towards KLIA"
     },
     "%@ · %@": {
       "comment": "Remaining distance · arrival time"
     },
-    "Accident": {
-      "comment": "Crowd report type, shown on the report button and map"
-    },
+    "About": {},
+    "Accident": {},
+    "Arrive at %@, %@ left": {},
     "At the roundabout, take the %@ exit": {
       "comment": "Argument is an ordinal, e.g. 2nd"
     },
+    "Avoid tolls": {},
+    "Cancel": {},
+    "Clear search": {},
     "Close": {},
-    "Closure": {
-      "comment": "Crowd report type, shown on the report button and map"
-    },
+    "Closure": {},
+    "Coming soon": {},
     "Continue": {},
     "Continue straight": {},
+    "Couldn't save the place. Try again.": {},
+    "Couldn't send the report. Check your connection.": {},
     "Current location unavailable": {},
+    "Dark map": {},
     "Done": {},
+    "Driving": {},
+    "Enable location in Settings": {},
     "End": {},
     "Enter the roundabout": {},
     "Exit the roundabout": {},
     "Finding route…": {},
-    "Flood": {
-      "comment": "Crowd report type, shown on the report button and map"
+    "Flood": {},
+    "Go": {},
+    "Gone": {
+      "comment": "Answer to 'still there?': the reported hazard has cleared"
     },
-    "Hazard": {
-      "comment": "Crowd report type, shown on the report button and map"
-    },
+    "Hazard": {},
+    "Home": {},
     "In %@, %@": {
       "comment": "Spoken prompt: distance then lower-cased maneuver, e.g. In 500 m, turn left"
     },
@@ -41,20 +52,43 @@
       "comment": "Keep left / Keep right"
     },
     "Keep straight": {},
+    "km/h": {},
     "left": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
     "Make a U-turn": {},
+    "Map data © OpenStreetMap contributors": {},
+    "Menu": {},
     "Merge": {},
+    "mph": {},
+    "No results": {},
     "No route found": {},
-    "Police": {
-      "comment": "Crowd report type, shown on the report button and map"
-    },
+    "OK": {},
+    "Police": {},
     "Re-centre": {},
+    "Remove": {},
+    "Report": {},
+    "Report %@": {},
+    "Reported %@ · %lld still there · %lld gone": {
+      "comment": "Map callout for a crowd report: relative age, then vote counts"
+    },
+    "Reports aren't available in this build.": {},
     "right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
     "Routing unavailable, check connection": {},
+    "Save place": {},
+    "Saved places couldn't be opened. Changes won't be kept.": {},
+    "Search destination": {},
+    "Search for an address to save": {},
+    "Search for your home address": {},
+    "Search for your work address": {},
+    "Search unavailable, check connection": {},
+    "Searching…": {},
+    "Set as Home": {},
+    "Set as Work": {},
+    "Set location": {},
+    "Settings": {},
     "sharp left": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
@@ -67,20 +101,37 @@
     "slight right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
+    "Something went wrong": {},
+    "Source code": {},
+    "Speed unavailable": {},
     "Start": {},
     "Start driving": {},
     "Start on %@": {
       "comment": "First instruction; argument is a road name"
     },
+    "Starts a route": {},
+    "Still there": {
+      "comment": "Answer to 'still there?': the reported hazard is still there"
+    },
     "Take the exit": {},
     "Take the ramp": {},
-    "Traffic": {
-      "comment": "Crowd report type, shown on the report button and map"
-    },
+    "That report has already cleared.": {},
+    "To %@": {},
+    "Toll": {},
+    "Traffic": {},
+    "Try again": {},
     "Turn %@": {
       "comment": "Turn left / Turn slight right; argument is a direction word"
     },
+    "Units": {},
+    "Unlock your phone to send reports.": {},
+    "Version": {},
+    "Voice guidance": {},
+    "Where to?": {},
+    "Work": {},
     "You have arrived": {},
+    "You've already voted on this report.": {},
+    "You've sent a lot of reports this hour. Try again later.": {},
     "Your destination is on the left": {},
     "Your destination is on the right": {}
   },

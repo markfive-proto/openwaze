@@ -77,11 +77,11 @@ final class StillThereTests: XCTestCase {
         XCTAssertTrue(trip.asked.isEmpty)
     }
 
-    func testNearTheEndOfTheRoute() {
+    func testNearTheEndOfTheRoute() throws {
         // 900 m along: reach runs past the last vertex, so the search must stop at the last segment.
-        let late = RouteProgress(
+        let late = try RouteProgress(
             segment: 9, nextStep: 0, distanceToManeuver: 0,
-            remainingDistance: route.along.last! - 900, remainingDuration: 0, offRouteBy: 0
+            remainingDistance: XCTUnwrap(route.along.last) - 900, remainingDuration: 0, offRouteBy: 0
         )
         let reports = [report("last", north: 990), report("past-end", north: 1100)]
         XCTAssertEqual(StillThere.nextAhead(on: route, at: late, reports: reports)?.id, "last")

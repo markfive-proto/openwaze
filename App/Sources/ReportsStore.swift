@@ -68,9 +68,10 @@ final class ReportsStore {
         load(after: Self.debounce)
     }
 
-    /// Refreshes the current area every minute until `stop()` (or until the
-    /// store is gone).
+    /// Refreshes the current area now and every minute until `stop()` (or
+    /// until the store is gone).
     func start() {
+        load(after: 0) // back in the foreground: catch up now
         timer?.cancel()
         timer = Task { [weak self, sleep] in
             while true {

@@ -60,10 +60,10 @@ final class DeviceID: @unchecked Sendable {
         lookup[kSecReturnData as String] = true
         var item: CFTypeRef?
         let status = SecItemCopyMatching(lookup as CFDictionary, &item)
-        if status == errSecSuccess, let data = item as? Data, let id = String(data: data, encoding: .utf8),
-           !id.isEmpty {
+        let stored = status == errSecSuccess ? (item as? Data).flatMap { String(data: $0, encoding: .utf8) } : nil
+        if let stored, !stored.isEmpty {
             defaults.set(true, forKey: markerKey)
-            return id
+            return stored
         }
         // Locked (errSecInteractionNotAllowed) or another error: retry later.
         guard status == errSecItemNotFound || status == errSecSuccess else { return nil }
