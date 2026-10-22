@@ -4,6 +4,7 @@ import CoreLocation
 /// a metre over the few hundred metres between route vertices.
 enum Geo {
     typealias Coordinate = CLLocationCoordinate2D
+    typealias Line = [Coordinate]
 
     static let earthRadius = 6_371_000.0
 
@@ -31,10 +32,17 @@ enum Geo {
         }
     }
 
-    /// Closest vertex to `point` at or after `start`.
-    static func nearestVertex(to point: Coordinate, in line: [Coordinate], from start: Int) -> Int {
+    /// First vertex at or after `start` within `tolerance` metres of `point`
+    /// (OSRM maneuvers sit exactly on a vertex), else the closest one after
+    /// `start`. Taking the first match keeps a later pass over the same
+    /// junction from stealing the step.
+    static func firstVertex(near point: Coordinate, in line: [Coordinate], from start: Int) -> Int {
+        let tolerance = 1.0 // metres
         guard start < line.count else { return max(0, line.count - 1) }
-        return (start ..< line.count).min { distance(point, line[$0]) < distance(point, line[$1]) } ?? start
+        let candidates = start ..< line.count
+        return candidates.first { distance(point, line[$0]) <= tolerance }
+            ?? candidates.min { distance(point, line[$0]) < distance(point, line[$1]) }
+            ?? start
     }
 
     struct Projection: Equatable {
@@ -46,14 +54,15 @@ enum Geo {
         var distance: Double
     }
 
-    /// Closest point on a polyline, searching segments at or after `start`
-    /// so progress never jumps back to an earlier pass over the same road.
-    /// ponytail: linear scan of the rest of the route, fine for a few
-    /// thousand vertices per fix; window it if routes get much longer.
-    static func project(_ point: Coordinate, onto line: [Coordinate], from start: Int = 0) -> Projection? {
+    /// Closest point on a polyline over segments `start...end`, so progress
+    /// never jumps back to an earlier pass over the same road, nor too far
+    /// ahead to a later one.
+    static func project(_ point: Coordinate, onto line: Line, from start: Int = 0, to end: Int = .max) -> Projection? {
         guard line.count >= 2 else { return nil }
+        let first = min(max(0, start), line.count - 2)
+        let last = max(first, min(end, line.count - 2))
         var best: Projection?
-        for segment in max(0, start) ..< line.count - 1 {
+        for segment in first ... last {
             // With `point` as the origin, find the closest point on head + t * (tail - head).
             let head = offset(line[segment], from: point)
             let tail = offset(line[segment + 1], from: point)

@@ -44,6 +44,38 @@ final class RouterTests: XCTestCase {
         XCTAssertEqual(route.stepStart[3], route.along[3])
     }
 
+    /// Round a small roundabout and leave where we entered, then drive back:
+    /// the entry, the exit and the start/end each share a coordinate.
+    let looped = Data("""
+    {"code": "Ok", "routes": [{
+      "distance": 536, "duration": 60,
+      "geometry": {"type": "LineString", "coordinates": [
+        [101.7, 3.0], [101.7, 3.001], [101.7005, 3.0015], [101.7, 3.002], [101.6995, 3.0015],
+        [101.7, 3.001], [101.7, 3.0]]},
+      "legs": [{"steps": [
+        {"maneuver": {"type": "depart", "location": [101.7, 3.0]}, "name": "Jalan A", "distance": 111},
+        {"maneuver": {"type": "roundabout", "modifier": "straight", "exit": 4, "location": [101.7, 3.001]},
+         "name": "Jalan A", "distance": 314},
+        {"maneuver": {"type": "exit roundabout", "modifier": "straight", "location": [101.7, 3.001]},
+         "name": "Jalan A", "distance": 111},
+        {"maneuver": {"type": "arrive", "location": [101.7, 3.0]}, "name": "Jalan A", "distance": 0}
+      ]}]
+    }]}
+    """.utf8)
+
+    func testLoopedRouteKeepsStepsApart() throws {
+        let route = try Router.parse(looped)
+        XCTAssertEqual(route.stepStart, [0, route.along[1], route.along[5], route.along[6]])
+        XCTAssertEqual(Set(route.stepStart).count, 4, "no two steps collapsed onto one vertex")
+    }
+
+    func testRouteWithoutCoordinatesDoesNotCrash() {
+        let step = Route.Step(type: "depart", latitude: 3, longitude: 101)
+        let route = Route(coordinates: [], steps: [step], distance: 0, duration: 0)
+        XCTAssertEqual(route.stepStart, [0])
+        XCTAssertNil(Guidance.progress(on: route, at: .init()))
+    }
+
     func testNoRouteAndMalformedResponses() {
         XCTAssertThrowsError(try Router.parse(Data(#"{"code": "NoRoute", "routes": []}"#.utf8))) {
             XCTAssertEqual($0 as? RouterError, .noRoute(code: "NoRoute"))

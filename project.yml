@@ -14,6 +14,15 @@ targets:
     sources: [App/Sources]
     dependencies:
       - package: MapLibre
+    # Merged with the generated Info.plist. Background location and audio keep
+    # guidance and spoken prompts going with the screen locked; LocationFeed
+    # only enables background updates while navigating.
+    info:
+      path: App/Info.plist
+      properties:
+        UIBackgroundModes: [location, audio]
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openwaze.app

@@ -49,11 +49,11 @@ final class InstructionTests: XCTestCase {
 
     func testSpokenPrompts() {
         let turn = Route.Step(type: "turn", modifier: "left", name: "Jalan Ampang", latitude: 0, longitude: 0)
-        XCTAssertEqual(Instruction.spoken(for: turn, distance: 480, threshold: 500),
+        XCTAssertEqual(Instruction.spoken(for: turn, distance: 480, early: true),
                        "In 500 m, turn left onto Jalan Ampang")
-        XCTAssertEqual(Instruction.spoken(for: turn, distance: 2300, threshold: .infinity),
+        XCTAssertEqual(Instruction.spoken(for: turn, distance: 2300, early: true),
                        "In 2.3 km, turn left onto Jalan Ampang")
-        XCTAssertEqual(Instruction.spoken(for: turn, distance: 40, threshold: 50), "Turn left onto Jalan Ampang")
+        XCTAssertEqual(Instruction.spoken(for: turn, distance: 40, early: false), "Turn left onto Jalan Ampang")
     }
 
     func testIcons() {

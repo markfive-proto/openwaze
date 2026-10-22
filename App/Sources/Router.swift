@@ -31,12 +31,20 @@ struct Route {
         self.distance = distance
         self.duration = duration
         along = Geo.cumulative(coordinates)
-        // OSRM puts each maneuver on a geometry vertex; match them in order.
+        guard !coordinates.isEmpty else {
+            stepStart = steps.map { _ in 0 }
+            return
+        }
+        // OSRM puts each maneuver on a geometry vertex; match them in order,
+        // each after the previous one, so a route that loops back over a
+        // junction (or re-enters a roundabout) keeps its steps apart. Only a
+        // zero-length step may share its vertex with the next.
         var vertex = 0
         var starts: [Double] = []
-        for step in steps {
+        for (index, step) in steps.enumerated() {
             let point = CLLocationCoordinate2D(latitude: step.latitude, longitude: step.longitude)
-            vertex = Geo.nearestVertex(to: point, in: coordinates, from: vertex)
+            let from = index == 0 || steps[index - 1].distance == 0 ? vertex : vertex + 1
+            vertex = Geo.firstVertex(near: point, in: coordinates, from: from)
             starts.append(along[vertex])
         }
         stepStart = starts

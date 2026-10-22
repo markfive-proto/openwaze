@@ -5,6 +5,7 @@ struct OpenWazeApp: App {
     @State private var location = LocationAuthorization()
     @State private var destination: Destination?
     @State private var navigator = Navigator()
+    @State private var following = true
 
     private var guiding: Bool {
         [.navigating, .arrived].contains(navigator.phase)
@@ -12,37 +13,49 @@ struct OpenWazeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MapView(destination: destination, route: navigator.route, navigating: navigator.phase == .navigating)
-                .ignoresSafeArea()
-                .overlay(alignment: .top) {
-                    if guiding {
-                        if let step = navigator.nextStep, let progress = navigator.progress {
-                            ManeuverBanner(step: step, distance: progress.distanceToManeuver)
-                        }
-                    } else {
-                        SearchView(destination: $destination, near: { location.coordinate })
+            MapView(
+                destination: destination, route: navigator.route,
+                navigating: navigator.phase == .navigating, following: following,
+                onUnfollow: { following = false }
+            )
+            .ignoresSafeArea()
+            .overlay(alignment: .top) {
+                if guiding {
+                    if let step = navigator.nextStep, let progress = navigator.progress {
+                        ManeuverBanner(step: step, distance: progress.distanceToManeuver)
                     }
+                } else {
+                    SearchView(destination: $destination, near: { location.coordinate })
                 }
-                .overlay(alignment: .bottom) {
-                    if navigator.phase != .idle {
+            }
+            .overlay(alignment: .bottom) {
+                if navigator.phase != .idle {
+                    VStack(alignment: .trailing, spacing: 0) {
+                        if navigator.phase == .navigating, !following {
+                            Button("Re-centre", systemImage: "location.north.line.fill") { following = true }
+                                .buttonStyle(.borderedProminent)
+                                .padding(.horizontal)
+                        }
                         TripCard(navigator: navigator) {
                             if guiding {
                                 destination = nil
                             }
                             navigator.end()
                         }
-                    } else if let destination {
-                        DestinationCard(destination: destination, onGo: { destination in
-                            Task { await navigator.preview(to: destination, from: location.coordinate) }
-                        }, onClose: {
-                            self.destination = nil
-                        })
-                    } else if location.isDenied {
-                        LocationHint()
                     }
+                } else if let destination {
+                    DestinationCard(destination: destination, onGo: { destination in
+                        Task { await navigator.preview(to: destination, from: location.coordinate) }
+                    }, onClose: {
+                        self.destination = nil
+                    })
+                } else if location.isDenied {
+                    LocationHint()
                 }
-                .onChange(of: destination) { navigator.end() } // a new search cancels the trip
-                .onAppear { location.request() }
+            }
+            .onChange(of: destination) { navigator.end() } // a new search cancels the trip
+            .onChange(of: navigator.phase) { following = true }
+            .onAppear { location.request() }
         }
     }
 }

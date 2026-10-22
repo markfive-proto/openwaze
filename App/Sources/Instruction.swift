@@ -28,11 +28,11 @@ enum Instruction {
         }
     }
 
-    /// What to say `distance` metres before the maneuver.
-    static func spoken(for step: Route.Step, distance: Double, threshold: Double) -> String {
+    /// What to say `distance` metres before the maneuver. The late prompt,
+    /// said just before it, leaves the distance out.
+    static func spoken(for step: Route.Step, distance: Double, early: Bool) -> String {
         let text = text(for: step)
-        // The nearest prompt is said just before the maneuver: no distance.
-        guard threshold > Guidance.announceAt.min() ?? 0, step.type != "arrive" else { return text }
+        guard early, step.type != "arrive" else { return text }
         let lowered = text.prefix(1).lowercased() + text.dropFirst() // "Turn left" -> "turn left"
         return String(localized: "In \(Format.distance(distance)), \(lowered)", comment: "e.g. In 500 m, turn left")
     }

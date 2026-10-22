@@ -35,6 +35,7 @@
     "Make a U-turn": {},
     "Merge": {},
     "No route found": {},
+    "Re-centre": {},
     "right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },

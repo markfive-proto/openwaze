@@ -10,12 +10,17 @@ struct MapView: UIViewRepresentable {
     var destination: Destination?
     var route: Route?
     var navigating = false
+    /// While navigating: whether the camera follows the user. Panning the map
+    /// calls `onUnfollow`; the app sets this back to re-centre.
+    var following = true
+    var onUnfollow: () -> Void = {}
 
     /// What the map last showed, so SwiftUI updates only redo what changed.
     struct State: Equatable {
         var destination: Destination?
         var route: UUID?
         var navigating = false
+        var following = true
     }
 
     static let styleURL = URL(string: "https://tiles.openfreemap.org/styles/liberty")!
@@ -34,11 +39,12 @@ struct MapView: UIViewRepresentable {
 
     func updateUIView(_ map: MLNMapView, context: Context) {
         let coordinator = context.coordinator
-        let state = State(destination: destination, route: route?.id, navigating: navigating)
+        let state = State(destination: destination, route: route?.id, navigating: navigating, following: following)
         guard state != coordinator.shown else { return }
         let previous = coordinator.shown
         coordinator.shown = state
         coordinator.route = route
+        coordinator.onUnfollow = onUnfollow
         coordinator.drawRoute(on: map)
         // Keep the OSM attribution and logo visible above the bottom card.
         let bottom = 8 + (destination == nil ? 0 : DestinationCard.height)
@@ -54,8 +60,11 @@ struct MapView: UIViewRepresentable {
             }
         }
         if navigating {
+            guard following, !previous.navigating || !previous.following else { return }
+            coordinator.movingCamera = true // our own camera moves are not the user panning
             map.setZoomLevel(17, animated: false)
             map.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
+            coordinator.movingCamera = false
         } else if let route {
             guard route.id != previous.route || previous.navigating else { return }
             var line = route.coordinates
@@ -78,7 +87,15 @@ struct MapView: UIViewRepresentable {
     final class Coordinator: NSObject, MLNMapViewDelegate {
         var shown = State()
         var route: Route?
+        var onUnfollow: () -> Void = {}
+        var movingCamera = false
         private var zoomedToFirstFix = false
+
+        func mapView(_: MLNMapView, didChange mode: MLNUserTrackingMode, animated _: Bool) {
+            guard shown.navigating, shown.following, !movingCamera, mode != .followWithCourse else { return }
+            let onUnfollow = onUnfollow
+            DispatchQueue.main.async(execute: onUnfollow) // not during a SwiftUI update
+        }
 
         func mapView(_ mapView: MLNMapView, didFinishLoading _: MLNStyle) {
             drawRoute(on: mapView) // a route may arrive before the style
