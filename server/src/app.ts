@@ -31,7 +31,9 @@ const PROBE_MAX_BODY_BYTES = 8 * 1024;
 const PROBE_MAX_SPEED_KMH = 200;
 const PROBE_POSTS_PER_MIN = 12; // the app posts about every 10 s
 const PROBE_TRIPS_PER_CELL_MIN = 20; // see the rate-limit note in POST /probes
-const TRAFFIC_MIN_TRIPS = 3; // k-anonymity: a cell is shown only with this many distinct trips
+// Noise floor, NOT a privacy control: a cell is shown only with this many distinct trips, so one stray car
+// does not paint a road. tripIds are client-chosen, so this gives no k-anonymity (see GET /traffic).
+const TRAFFIC_MIN_TRIPS = 3;
 const JAM_BELOW_KMH = 15;
 const SLOW_BELOW_KMH = 40;
 const TRIP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -76,7 +78,7 @@ const roundDp = (v: number, dp: number) => {
   return v < 0 && r !== 0 ? -r : r; // never -0
 };
 const round4 = (v: number) => roundDp(v, 4); // reports: ~11 m
-const round3 = (v: number) => roundDp(v, 3); // probe grid cell: ~110 m
+const cellKey = (v: number) => Math.round(roundDp(v, 3) * 1000); // probe grid cell (~110 m) as an integer
 const headingBucket = (deg: number) => (Math.round(deg / 45) % 8) * 45; // 8 buckets: 0, 45, ..., 315
 const median = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -131,16 +133,18 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
       PRIMARY KEY (report_id, device_id)
     );
     CREATE INDEX IF NOT EXISTS votes_device ON votes (device_id, created_at);
-    -- Speed probes: one row per (cell, heading bucket, minute, trip). The primary key is what stops a single
-    -- trip from dominating a cell: at most one sample per trip per cell per minute (first one wins).
+    -- Speed probes: one row per (cell, heading bucket, trip). The primary key is what stops a single trip
+    -- from dominating a cell: one sample per trip per cell for the whole 15-min window (first one wins; the
+    -- row leaves the window and is deleted 15 min after its minute, then the trip may count again).
+    -- Integer cell keys make the bbox a range on the primary key's first column.
     CREATE TABLE IF NOT EXISTS probes (
-      lat REAL NOT NULL,        -- cell, rounded to 3 decimals
-      lng REAL NOT NULL,
-      heading INTEGER NOT NULL, -- bucket: 0, 45, ..., 315
-      minute INTEGER NOT NULL,  -- sample time floored to the minute, epoch ms
-      trip_id TEXT NOT NULL,    -- random per trip, never linked to a deviceId
+      cell_lat INTEGER NOT NULL, -- lat rounded to 3 decimals, times 1000
+      cell_lng INTEGER NOT NULL,
+      heading INTEGER NOT NULL,  -- bucket: 0, 45, ..., 315
+      trip_id TEXT NOT NULL,     -- random per trip, never linked to a deviceId
+      minute INTEGER NOT NULL,   -- sample time floored to the minute, epoch ms
       speed REAL NOT NULL,
-      PRIMARY KEY (lat, lng, heading, minute, trip_id)
+      PRIMARY KEY (cell_lat, cell_lng, heading, trip_id)
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS probes_minute ON probes (minute);
     CREATE TABLE IF NOT EXISTS probe_posts (trip_id TEXT NOT NULL, at INTEGER NOT NULL); -- rate limit, 1 min
@@ -176,17 +180,21 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     cleanup: db.prepare('DELETE FROM reports WHERE expires_at < ?'),
     probePostsByTrip: db.prepare('SELECT COUNT(*) AS n FROM probe_posts WHERE trip_id = ? AND at > ?'),
     insertProbePost: db.prepare('INSERT INTO probe_posts (trip_id, at) VALUES (?, ?)'),
-    // Skips the row once the cell already has PROBE_TRIPS_PER_CELL_MIN trips this minute; OR IGNORE drops
-    // a second sample from the same trip in the same cell and minute.
+    // Skips the row once PROBE_TRIPS_PER_CELL_MIN trips entered the cell this minute; OR IGNORE drops any
+    // further sample from a trip already in the cell's window.
     insertProbe: db.prepare(
-      `INSERT OR IGNORE INTO probes (lat, lng, heading, minute, trip_id, speed)
-       SELECT :lat, :lng, :heading, :minute, :tripId, :speed
-       WHERE (SELECT COUNT(*) FROM probes WHERE lat = :lat AND lng = :lng AND heading = :heading AND minute = :minute)
+      `INSERT OR IGNORE INTO probes (cell_lat, cell_lng, heading, trip_id, minute, speed)
+       SELECT :cellLat, :cellLng, :heading, :tripId, :minute, :speed
+       WHERE (SELECT COUNT(*) FROM probes
+              WHERE cell_lat = :cellLat AND cell_lng = :cellLng AND heading = :heading AND minute = :minute)
          < ${PROBE_TRIPS_PER_CELL_MIN}`,
     ),
-    probesInBox: db.prepare(
-      `SELECT lat, lng, heading, trip_id, speed FROM probes
-       WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? AND minute > ?`,
+    // One row per trip per cell, so COUNT(*) is the distinct-trip count.
+    traffic: db.prepare(
+      `SELECT cell_lat, cell_lng, heading, json_group_array(speed) AS speeds FROM probes
+       WHERE cell_lat BETWEEN ? AND ? AND cell_lng BETWEEN ? AND ? AND minute > ?
+       GROUP BY cell_lat, cell_lng, heading HAVING COUNT(*) >= ${TRAFFIC_MIN_TRIPS}
+       ORDER BY COUNT(*) DESC LIMIT ${MAX_RESULTS}`,
     ),
     cleanupProbes: db.prepare('DELETE FROM probes WHERE minute <= ?'),
     cleanupProbePosts: db.prepare('DELETE FROM probe_posts WHERE at <= ?'),
@@ -297,7 +305,8 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
       for (const s of samples) {
         const ok =
           s && typeof s === 'object' && isLat(s.lat) && isLng(s.lng) && isNum(s.heading) && s.heading >= 0 &&
-          s.heading <= 360 && isNum(s.speedKmh) && typeof s.t === 'string' && ISO_UTC.test(s.t);
+          s.heading <= 360 && isNum(s.speedKmh) && typeof s.t === 'string' && ISO_UTC.test(s.t) &&
+          !Number.isNaN(Date.parse(s.t)); // the regex admits month 13 or hour 25
         if (!ok)
           return c.json(
             { error: 'each sample needs lat, lng, heading 0..360, speedKmh (numbers) and t (ISO 8601 UTC)' },
@@ -305,11 +314,13 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
           );
       }
 
-      // ponytail: no IPs and no accounts, so a forger can mint TRAFFIC_MIN_TRIPS fresh tripIds and fake a cell.
-      // Two IP-less limits bound the damage: PROBE_POSTS_PER_MIN per tripId stops one trip flooding, and
-      // PROBE_TRIPS_PER_CELL_MIN caps distinct trips per cell per minute, so a tripId-rotating flood cannot
-      // grow the table past cells x 20 x 15 rows or bury a cell under hundreds of fake trips. Real fix: device
-      // attestation (App Attest) on trip start.
+      // ponytail: no IPs and no accounts, so tripIds are free to mint: a forger can fake any cell's level with
+      // TRAFFIC_MIN_TRIPS made-up trips. Two IP-less limits only bound the damage: PROBE_POSTS_PER_MIN per
+      // tripId stops one trip flooding, and PROBE_TRIPS_PER_CELL_MIN caps new trips per cell per minute, so a
+      // tripId-rotating flood cannot grow the table past cells x 20 x 15 rows. Trade-off: that cap is first
+      // come, first served, so a flood that fills a cell each minute locks real drivers out of it and owns its
+      // level (an availability attack on that cell, not on the server). Real fix: device attestation (App
+      // Attest) on trip start, so each tripId costs a real device.
       const t = now();
       const { n } = q.probePostsByTrip.get(tripId, t - MIN) as { n: number };
       if (n >= PROBE_POSTS_PER_MIN)
@@ -325,8 +336,8 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
           if (at < t - PROBE_MAX_AGE_MS || at > t + PROBE_MAX_SKEW_MS) continue;
           if (s.speedKmh < 0 || s.speedKmh > PROBE_MAX_SPEED_KMH) continue;
           const row = {
-            lat: round3(s.lat),
-            lng: round3(s.lng),
+            cellLat: cellKey(s.lat),
+            cellLng: cellKey(s.lng),
             heading: headingBucket(s.heading),
             minute: Math.floor(at / MIN) * MIN,
             tripId,
@@ -340,44 +351,38 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     },
   );
 
+  // Returns only cell, heading bucket and level. No speed and no sample counts: tripIds are client-chosen, so
+  // an attacker can add their own trips to a cell and subtract them out; exact speeds or counts would let
+  // them recover a lone real driver's speed. A coarse level leaks far less, but it is still not anonymity.
+  // ponytail: real fix is device attestation (App Attest) so fake trips cost real devices.
   app.get('/traffic', (c) => {
     const box = parseBbox((k) => c.req.query(k));
     if (typeof box === 'string') return c.json({ error: box }, 400);
-    const rows = q.probesInBox.all(box.minLat, box.maxLat, box.minLng, box.maxLng, now() - PROBE_WINDOW_MS) as {
-      lat: number;
-      lng: number;
+    const lo = (v: number) => Math.ceil(v * 1000 - EPS);
+    const hi = (v: number) => Math.floor(v * 1000 + EPS);
+    const t = now();
+    const rows = q.traffic.all(lo(box.minLat), hi(box.maxLat), lo(box.minLng), hi(box.maxLng), t - PROBE_WINDOW_MS) as {
+      cell_lat: number;
+      cell_lng: number;
       heading: number;
-      trip_id: string;
-      speed: number;
+      speeds: string;
     }[];
-    // ponytail: groups every in-window row of the box in memory; fine while rows are bounded by the 15-min
-    // window, move to a per-minute aggregate table if a busy 4 sq deg box gets slow.
-    type Agg = { lat: number; lng: number; heading: number; trips: Set<string>; speeds: number[] };
-    const cells = new Map<string, Agg>();
-    for (const r of rows) {
-      const key = `${r.lat},${r.lng},${r.heading}`;
-      let cell = cells.get(key);
-      if (!cell) cells.set(key, (cell = { lat: r.lat, lng: r.lng, heading: r.heading, trips: new Set(), speeds: [] }));
-      cell.trips.add(r.trip_id);
-      cell.speeds.push(r.speed);
-    }
-    const out = [...cells.values()]
-      .filter((cell) => cell.trips.size >= TRAFFIC_MIN_TRIPS)
-      .sort((a, b) => b.speeds.length - a.speeds.length)
-      .slice(0, MAX_RESULTS)
-      .map((cell) => {
-        const speedKmh = Math.round(median(cell.speeds));
-        const { lat, lng, heading, speeds } = cell;
-        return { lat, lng, heading, level: level(speedKmh), speedKmh, samples: speeds.length };
-      });
-    return c.json(out);
+    return c.json(
+      rows.map((r) => ({
+        lat: r.cell_lat / 1000,
+        lng: r.cell_lng / 1000,
+        heading: r.heading,
+        level: level(median(JSON.parse(r.speeds))),
+      })),
+    );
   });
 
-  const cleanup = () => {
+  const cleanup = () => q.cleanup.run(now() - HOUR).changes;
+  // Probes run on their own 60 s timer (server.ts) so raw samples outlive the window by at most a minute.
+  const cleanupProbes = () => {
     const t = now();
-    const runs = [q.cleanup.run(t - HOUR), q.cleanupProbes.run(t - PROBE_WINDOW_MS), q.cleanupProbePosts.run(t - MIN)];
-    return runs.reduce((sum, r) => sum + Number(r.changes), 0);
+    return Number(q.cleanupProbes.run(t - PROBE_WINDOW_MS).changes) + Number(q.cleanupProbePosts.run(t - MIN).changes);
   };
 
-  return { app, db, cleanup };
+  return { app, db, cleanup, cleanupProbes };
 }

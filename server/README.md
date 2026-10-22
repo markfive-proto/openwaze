@@ -53,8 +53,10 @@ Rules:
 Cell object:
 
 ```json
-{ "lat": 3.158, "lng": 101.712, "heading": 90, "level": "jam", "speedKmh": 12, "samples": 7 }
+{ "lat": 3.158, "lng": 101.712, "heading": 90, "level": "jam" }
 ```
+
+No speed and no sample counts, on purpose: see "Threat" below.
 
 Client rules (the server cannot check these, see [docs/privacy.md](../docs/privacy.md) section 5):
 new random `tripId` per trip, no `deviceId`, snap to the grid before sending, round `t` to
@@ -68,15 +70,28 @@ Rules:
   than 1 min in the future (clock skew), `speedKmh` outside 0..200.
 - The server re-snaps: `lat`/`lng` rounded to 3 decimals (about 110 m cell), `heading` to 8
   buckets (0, 45, ..., 315), `t` floored to the minute.
-- One sample per trip per cell, heading and minute; later ones are ignored (so one trip
-  cannot dominate a cell). At most 20 trips per cell, heading and minute.
+- One sample per trip per cell and heading for the whole 15-min window: the first one counts,
+  later ones are ignored until it leaves the window (so one trip cannot outvote others in a
+  cell). At most 20 new trips per cell, heading and minute.
 - Per `tripId`: 12 posts per rolling minute (`429`). No IPs are stored or used.
 - Bodies over 8 KB get `413`.
-- `GET /traffic`: per cell and heading bucket, the median speed of samples from the last
-  15 min, rounded to km/h, and the sample count. Only cells with samples from at least 3
-  distinct trips are returned. Max 500 cells, busiest first. Same bbox rules as `/reports`.
+- `GET /traffic`: per cell and heading bucket, the `level` of the median speed of samples
+  from the last 15 min. A cell needs samples from at least 3 distinct trips (a noise floor
+  so one stray car does not paint a road). Max 500 cells, busiest first. Same bbox rules as
+  `/reports`.
 - `level`: `jam` below 15 km/h, `slow` below 40, else `free` (absolute, not per road).
-- Raw samples are deleted once 15 min old (cleanup runs every minute). No longer history is kept.
+- Raw samples are deleted once 15 min old (probe cleanup runs every minute). No longer history is kept.
+- Measured (Node 22, M-series Mac, in-memory DB, 240k in-window rows over 20k cells):
+  a max 2x2 degree box takes about 62 ms p50 (500 cells), a city box about 1 ms.
+
+Threat (not anonymity): `tripId`s are client-chosen and free to mint, so the 3-trip floor is
+not k-anonymity. An attacker can add 2 fake trips to a cell and subtract their own known
+samples to learn a lone real driver's data. That is why `/traffic` returns only a coarse
+level, never speeds or counts, which limits what they learn to which of 3 bands the driver
+was in. The same weakness lets a forger fake any cell's level, or fill a cell's 20-trip cap
+each minute and lock real drivers out of it. The real fix is device attestation (App Attest)
+so each trip costs a real device; until then, treat `/traffic` as best effort, not as a
+privacy guarantee.
 
 ## curl
 

@@ -13,10 +13,10 @@ Checked against `main` on 2026-10-22.
 
 | Data | Where it goes | Retention | Who can see it | User control |
 |---|---|---|---|---|
-| **Report location** (lat/lng of a hazard report, rounded to 4 decimals, about 11 m, on write; plus type and time) | Our reports server (`server/src/app.ts`), SQLite `reports` table. Returned to anyone who queries a bbox. | Expires after 30-120 min by type. The row is deleted 1 h after expiry (cleanup runs every minute). A report with 2 downvotes expires at once. | Everyone using the API (public by design, no `deviceId`). | None yet. No delete-my-reports endpoint. Reports are short-lived. |
+| **Report location** (lat/lng of a hazard report, rounded to 4 decimals, about 11 m, on write; plus type and time) | Our reports server (`server/src/app.ts`), SQLite `reports` table. Returned to anyone who queries a bbox. | Expires after 30-120 min by type. The row is deleted 1 h after expiry (cleanup runs every 5 min). A report with 2 downvotes expires at once. | Everyone using the API (public by design, no `deviceId`). | None yet. No delete-my-reports endpoint. Reports are short-lived. |
 | **`deviceId`** (client-chosen, 1-128 chars, no accounts) | Same server: `reports.device_id` and `votes.device_id`. Used for rate limits and one-vote-per-report. Never returned by the API. | Reports: as above. Votes: deleted with their report (cascade). | Server operator only. | The client picks it, so a user can rotate it. The app does not send reports yet and no `DeviceID` code exists in `App/Sources`. |
 | **Votes** (still there / gone) | `votes` table, tied to `deviceId` and report | Deleted with the report | Operator only | None yet |
-| **Speed probes** (#13, server side only; the app does not send them yet) | Same server, `probes` table: grid cell (lat/lng rounded to 3 decimals, about 110 m), heading bucket (8), minute, speed, random per-trip `tripId`. `probe_posts`: `tripId` and time, for the per-trip rate limit. No `deviceId`, no IP, no exact position or time is stored. | Samples: deleted once 15 min old (cleanup every minute, so at most about 16 min). `probe_posts`: 1 min. | `GET /traffic` returns only per-cell median speed, level and sample count, for cells with at least 3 distinct trips. `tripId` is never returned. Operator sees raw rows. | Opt-out in the app (to build, #22). |
+| **Speed probes** (#13, server side only; the app does not send them yet) | Same server, `probes` table: grid cell (lat/lng rounded to 3 decimals, about 110 m), heading bucket (8), minute, speed, random per-trip `tripId`. `probe_posts`: `tripId` and time, for the per-trip rate limit. No `deviceId`, no IP, no exact position or time is stored. | Samples: deleted once 15 min old (probe cleanup every minute, so at most about 16 min). `probe_posts`: 1 min. | `GET /traffic` returns only cell, heading bucket and level (free/slow/jam), no speeds or counts, for cells with at least 3 distinct trips (a noise floor, not anonymity: see section 5). `tripId` is never returned. Operator sees raw rows. | Opt-out in the app (to build, #22). |
 | **IP address** | Whatever fronts the server (host, reverse proxy, CDN). The app code does not log IPs. `console.error` logs errors only. | **Unknown, set by the host.** Decide before production. | Host operator | None |
 | **Search text + rounded location bias** | Photon / Komoot (`photon.komoot.io`), from `Photon.swift`. Bias is rounded to 2 decimals (about 1 km). | Third party's policy | Komoot | Do not search |
 | **Route origin and destination** | OSRM public demo server (`router.project-osrm.org`), from `Router.swift`. **Sent at full precision, not rounded.** | Third party's policy | OSRM demo operators | Do not route. See gap G1. |
@@ -121,9 +121,15 @@ Use these as acceptance criteria in the tickets.
   buckets and the minute, so a client that skips snapping still is not stored exactly. Raw
   samples (with `tripId`) live 15 min by sample time; the median is computed on read from
   them, so there is no separate aggregate store. A `tripId` is gone at most about 16 min after
-  its last sample. `/traffic` shows a cell only with 3 or more distinct trips, counts one
-  sample per trip per cell per minute, and never returns `tripId`. A body carrying `deviceId`
+  its last sample. One sample per trip per cell per 15-min window. `/traffic` returns only
+  cell, heading bucket and level, never speeds, counts or `tripId`. A body carrying `deviceId`
   is rejected. Rate limits use `tripId` and per-cell trip counts only, never IPs.
+- **Not k-anonymity.** `/traffic` hides cells with fewer than 3 distinct trips, but `tripId`s
+  are client-chosen, so an attacker can add 2 fake trips next to one real driver and subtract
+  their own samples. The 3-trip rule is a noise floor only. What limits the leak is that only
+  a coarse level is published; it still reveals which band (under 15, under 40, or faster) a
+  lone driver was in for that cell and 15 minutes. The same gap lets anyone forge traffic. Real
+  fix: device attestation (App Attest) so a trip id costs a real device (separate ticket).
 - Not enforceable on the server, so the app must do it: new `tripId` per trip, grid snapping
   on the device, minute timestamps, and skipping the first and last 500 m.
 - Off until the user has seen the notice. Opt-out in settings (#22) stops sending at once.
