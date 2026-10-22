@@ -20,6 +20,7 @@ jobs:
       ios: ${{ steps.diff.outputs.ios }}
       server: ${{ steps.diff.outputs.server }}
       server_tests: ${{ steps.diff.outputs.server_tests }}
+      scripts: ${{ steps.diff.outputs.scripts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -43,6 +44,7 @@ jobs:
             echo "ios=$(match "^(App/|project\.yml$|Makefile$|Brewfile$|\.swiftlint\.yml$)|$shared")"
             echo "server=$(match "^server/|$shared")"
             echo "server_tests=$(match '^server/src/.*\.test\.ts$|^scripts/check-test-bites\.sh$')"
+            echo "scripts=$(match "^scripts/.*\.mjs$|$shared")"
           } >> "$GITHUB_OUTPUT"
 
   ios:
@@ -130,9 +132,26 @@ jobs:
           fi
           bash "$script" --base "$BASE"
 
+  # Agent-loop scripts (#6): pure-logic unit tests, no dependencies.
+  scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - run: node --test 'scripts/test/*.test.mjs'
+
   # The single required check: green when every relevant job passed or was skipped.
   ci-ok:
-    needs: [changes, ios, server, test-bites]
+    needs: [changes, ios, server, test-bites, scripts]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -142,9 +161,10 @@ jobs:
           IOS: ${{ needs.ios.result }}
           SERVER: ${{ needs.server.result }}
           BITES: ${{ needs.test-bites.result }}
+          SCRIPTS: ${{ needs.scripts.result }}
         run: |
-          echo "changes=$CHANGES ios=$IOS server=$SERVER test-bites=$BITES"
+          echo "changes=$CHANGES ios=$IOS server=$SERVER test-bites=$BITES scripts=$SCRIPTS"
           [ "$CHANGES" = success ] || exit 1
-          for r in "$IOS" "$SERVER" "$BITES"; do
+          for r in "$IOS" "$SERVER" "$BITES" "$SCRIPTS"; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done
