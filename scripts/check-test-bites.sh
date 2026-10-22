@@ -65,9 +65,11 @@ fi
 tmp="$(mktemp -d "${TMPDIR:-/tmp}/test-bites.XXXXXX")"
 # shellcheck disable=SC2329 # invoked by the trap below
 cleanup() {
+  local rc=$? # keep the script's exit status
   git worktree remove --force "$tmp/base" >/dev/null 2>&1 || true
   git worktree remove --force "$tmp/head" >/dev/null 2>&1 || true
   rm -rf "$tmp"
+  exit "$rc"
 }
 trap cleanup EXIT
 
@@ -82,7 +84,7 @@ run_test() { # $1 worktree, $2 repo-relative test path
   (cd "$1/server" && node --test "${2#server/}") >"$tmp/log" 2>&1
 }
 
-for f in "${tests[@]}" "${support[@]}"; do
+for f in "${tests[@]}" ${support[@]+"${support[@]}"}; do # bash 3.2-safe empty array
   mkdir -p "$tmp/base/$(dirname "$f")"
   git show "$head_sha:$f" >"$tmp/base/$f"
 done
