@@ -10,7 +10,12 @@ KLCC  := 3.1579,101.7116
 GPX   ?= App/TestData/PJ-city-drive.gpx
 SPEED ?= 12
 
-.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop
+# Real iPhone: plug it in, trust this Mac, enable Settings > Privacy & Security > Developer Mode,
+# then `make device TEAM=<your Apple Developer team ID>`. The team ID stays out of the repo.
+TEAM      ?=
+DEVICE_ID  = $(shell xcrun devicectl list devices 2>/dev/null | grep -m1 -oE "[0-9A-F]{8}-[0-9A-F]{16}|[0-9A-Fa-f-]{36}")
+
+.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop device
 
 bootstrap:
 	git config core.hooksPath scripts/githooks
@@ -40,3 +45,12 @@ sim-drive:
 
 sim-stop:
 	xcrun simctl location booted clear
+
+device: project
+	@test -n "$(TEAM)" || { echo "Usage: make device TEAM=<Apple Developer team ID>"; exit 1; }
+	@test -n "$(DEVICE_ID)" || { echo "No iPhone found. Plug it in, unlock it, tap Trust, enable Developer Mode."; exit 1; }
+	xcodebuild build -project $(PROJECT) -scheme $(SCHEME) -destination "id=$(DEVICE_ID)" \
+		-derivedDataPath build -allowProvisioningUpdates \
+		DEVELOPMENT_TEAM=$(TEAM) CODE_SIGN_STYLE=Automatic
+	xcrun devicectl device install app --device $(DEVICE_ID) build/Build/Products/Debug-iphoneos/OpenWaze.app
+	xcrun devicectl device process launch --device $(DEVICE_ID) org.openwaze.app
