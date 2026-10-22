@@ -14,7 +14,8 @@ struct OpenWazeApp: App {
                 }
                 .overlay(alignment: .bottom) {
                     if let destination {
-                        DestinationCard(destination: destination, onGo: onGo) {
+                        // Routing (#10) hooks in by passing onGo: { destination in ... }.
+                        DestinationCard(destination: destination, onGo: nil) {
                             self.destination = nil
                         }
                     } else if location.isDenied {
@@ -24,7 +25,4 @@ struct OpenWazeApp: App {
                 .onAppear { location.request() }
         }
     }
-
-    /// Start navigating to `destination`. Routing (#10) hooks in here.
-    private func onGo(_: Destination) {}
 }

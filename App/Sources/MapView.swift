@@ -26,6 +26,10 @@ struct MapView: UIViewRepresentable {
         guard destination != coordinator.shown else { return }
         coordinator.shown = destination
         map.removeAnnotations(map.annotations ?? [])
+        // Keep the OSM attribution and logo visible above the destination card.
+        let bottom = 8 + (destination == nil ? 0 : DestinationCard.height)
+        map.logoViewMargins = CGPoint(x: 8, y: bottom)
+        map.attributionButtonMargins = CGPoint(x: 8, y: bottom)
         guard let destination else {
             map.userTrackingMode = .follow
             return
@@ -44,6 +48,7 @@ struct MapView: UIViewRepresentable {
 
         func mapView(_ mapView: MLNMapView, didUpdate userLocation: MLNUserLocation?) {
             guard !zoomedToFirstFix,
+                  shown == nil, // don't yank the map off a picked destination
                   let location = userLocation?.location,
                   Zoom.isUsableFirstFix(location) else { return }
             zoomedToFirstFix = true

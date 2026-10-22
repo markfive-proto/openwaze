@@ -14,44 +14,72 @@ struct Destination: Identifiable, Equatable {
     }
 }
 
+enum PhotonError: Error, Equatable {
+    case http(status: Int)
+}
+
 /// Keyless geocoding via Photon (OpenStreetMap data, hosted by Komoot).
 enum Photon {
+    typealias Fetch = (URLRequest) async throws -> (Data, URLResponse)
+
     static let baseURL = URL(string: "https://photon.komoot.io/api/")!
     static let userAgent = "OpenWaze/0.1 (+https://github.com/markfive-proto/openwaze)"
     static let limit = 8
 
-    static func search(_ query: String, near: CLLocationCoordinate2D?) async throws -> [Destination] {
+    static func search(
+        _ query: String,
+        near: CLLocationCoordinate2D?,
+        fetch: Fetch = { try await URLSession.shared.data(for: $0) }
+    ) async throws -> [Destination] {
         var request = URLRequest(url: url(query: query, near: near))
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await fetch(request)
+        if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
+            throw PhotonError.http(status: http.statusCode)
+        }
         return try parse(data)
     }
 
+    /// Location bias is rounded to 2 decimals (~1 km) so the exact position
+    /// never leaves the device.
     static func url(query: String, near: CLLocationCoordinate2D?) -> URL {
         var items = [URLQueryItem(name: "q", value: query)]
         if let near {
-            items.append(URLQueryItem(name: "lat", value: String(near.latitude)))
-            items.append(URLQueryItem(name: "lon", value: String(near.longitude)))
+            items.append(URLQueryItem(name: "lat", value: rounded(near.latitude)))
+            items.append(URLQueryItem(name: "lon", value: rounded(near.longitude)))
         }
         items.append(URLQueryItem(name: "limit", value: String(limit)))
-        return baseURL.appending(queryItems: items)
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.queryItems = items
+        // URLComponents leaves "+" alone, which servers read as a space.
+        components.percentEncodedQuery = components.percentEncodedQuery?
+            .replacingOccurrences(of: "+", with: "%2B")
+        return components.url!
     }
 
+    static func rounded(_ degrees: Double) -> String {
+        String((degrees * 100).rounded() / 100)
+    }
+
+    /// Parses a Photon FeatureCollection. Malformed or unidentifiable
+    /// features are skipped rather than failing the whole response.
     static func parse(_ data: Data) throws -> [Destination] {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase // osm_id -> osmId
-        return try decoder.decode(Response.self, from: data).features.compactMap { feature in
+        return try decoder.decode(Response.self, from: data).features.compactMap { lossy in
+            guard let feature = lossy.value,
+                  let osmType = clean(feature.properties.osmType),
+                  let osmId = feature.properties.osmId,
+                  feature.geometry.coordinates.count >= 2 else { return nil }
             let props = feature.properties
-            let coords = feature.geometry.coordinates
-            guard coords.count >= 2 else { return nil }
-            let street = join([props.housenumber, props.street], " ")
-            guard let name = props.name ?? street.nilIfEmpty else { return nil }
+            let street = [props.housenumber, props.street].compactMap(clean).joined(separator: " ")
+            guard let name = clean(props.name) ?? clean(street) else { return nil }
             return Destination(
-                id: "\(props.osmType ?? "")\(props.osmId ?? 0)",
+                id: "\(osmType)\(osmId)",
                 name: name,
                 address: shortAddress(name: name, street: street, props: props),
-                latitude: coords[1],
-                longitude: coords[0]
+                latitude: feature.geometry.coordinates[1],
+                longitude: feature.geometry.coordinates[0]
             )
         }
     }
@@ -60,18 +88,30 @@ enum Photon {
     /// place name, then country, skipping blanks and repeats of earlier parts.
     static func shortAddress(name: String, street: String, props: Properties) -> String {
         var seen: Set<String> = [name]
-        let parts = [street, props.city ?? props.district ?? props.locality, props.country]
-            .compactMap { $0?.nilIfEmpty }
+        let place = clean(props.city) ?? clean(props.district) ?? clean(props.locality)
+        return [clean(street), place, clean(props.country)]
+            .compactMap(\.self)
             .filter { seen.insert($0).inserted }
-        return parts.joined(separator: ", ")
+            .joined(separator: ", ")
     }
 
-    private static func join(_ parts: [String?], _ separator: String) -> String {
-        parts.compactMap { $0?.nilIfEmpty }.joined(separator: separator)
+    /// Trimmed value, or nil when missing or blank.
+    static func clean(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     struct Response: Decodable {
-        let features: [Feature]
+        let features: [Lossy<Feature>]
+    }
+
+    /// Decodes to nil instead of throwing, so one bad element is dropped alone.
+    struct Lossy<Value: Decodable>: Decodable {
+        let value: Value?
+
+        init(from decoder: Decoder) throws {
+            value = try? Value(from: decoder)
+        }
     }
 
     struct Feature: Decodable {
@@ -93,12 +133,5 @@ enum Photon {
         var district: String?
         var city: String?
         var country: String?
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        let trimmed = trimmingCharacters(in: .whitespaces)
-        return trimmed.isEmpty ? nil : trimmed
     }
 }
