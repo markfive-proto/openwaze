@@ -1,0 +1,69 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ onto %@": {
+      "comment": "Maneuver then road name, e.g. Turn left onto Jalan Ampang"
+    },
+    "%@ towards %@": {
+      "comment": "Maneuver then signposted destination, e.g. Take the exit towards KLIA"
+    },
+    "%@ · %@": {
+      "comment": "Remaining distance · arrival time"
+    },
+    "At the roundabout, take the %@ exit": {
+      "comment": "Argument is an ordinal, e.g. 2nd"
+    },
+    "Close": {},
+    "Continue": {},
+    "Continue straight": {},
+    "Current location unavailable": {},
+    "Done": {},
+    "End": {},
+    "Enter the roundabout": {},
+    "Exit the roundabout": {},
+    "Finding route…": {},
+    "In %@, %@": {
+      "comment": "Spoken prompt: distance then lower-cased maneuver, e.g. In 500 m, turn left"
+    },
+    "Keep %@": {
+      "comment": "Keep left / Keep right"
+    },
+    "Keep straight": {},
+    "left": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "Make a U-turn": {},
+    "Merge": {},
+    "No route found": {},
+    "right": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "Routing unavailable, check connection": {},
+    "sharp left": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "sharp right": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "slight left": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "slight right": {
+      "comment": "Direction word inside Turn %@ / Keep %@"
+    },
+    "Start": {},
+    "Start driving": {},
+    "Start on %@": {
+      "comment": "First instruction; argument is a road name"
+    },
+    "Take the exit": {},
+    "Take the ramp": {},
+    "Turn %@": {
+      "comment": "Turn left / Turn slight right; argument is a direction word"
+    },
+    "You have arrived": {},
+    "Your destination is on the left": {},
+    "Your destination is on the right": {}
+  },
+  "version": "1.0"
+}

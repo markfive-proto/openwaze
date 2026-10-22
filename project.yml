@@ -23,6 +23,7 @@ targets:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: OpenWaze shows your position on the map.
         TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_EMIT_LOC_STRINGS: YES # String(localized:) keys -> Localizable.xcstrings
   OpenWazeTests:
     type: bundle.unit-test
     platform: iOS
