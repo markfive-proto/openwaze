@@ -54,6 +54,17 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  # Demo walkthrough UI test (#52). Its own scheme, so `make test` never runs it;
+  # `make demo` does, via scripts/demo/record.sh.
+  OpenWazeDemo:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [App/Demo]
+    dependencies:
+      - target: OpenWaze
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   OpenWaze:
     build:
@@ -61,3 +72,10 @@ schemes:
         OpenWaze: all
     test:
       targets: [OpenWazeTests]
+  OpenWazeDemo:
+    build:
+      targets:
+        OpenWaze: all
+        OpenWazeDemo: [test]
+    test:
+      targets: [OpenWazeDemo]

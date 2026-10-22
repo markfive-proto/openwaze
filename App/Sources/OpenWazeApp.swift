@@ -10,6 +10,7 @@ struct OpenWazeApp: App {
             HomeView(context: store.container.mainContext, storeFailed: store.error != nil)
                 .fontDesign(.rounded)
                 .tint(Theme.accent)
+                .onAppear(perform: TouchOverlay.install)
         }
         .modelContainer(store.container)
     }
@@ -220,6 +221,7 @@ struct HomeView: View {
                 }
                 Button(String(localized: "Report"), systemImage: "exclamationmark.bubble.fill") { sheet = .report }
                     .buttonStyle(RoundButtonStyle(size: Theme.fab, filled: true))
+                    .accessibilityIdentifier("report.button")
             }
         }
     }

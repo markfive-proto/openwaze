@@ -21,3 +21,6 @@ build/
 
 # Agent worktrees (scripts/agent-pick.mjs, Claude Code)
 .claude/worktrees/
+
+# Demo recording (make demo)
+/demo/

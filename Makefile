@@ -10,7 +10,7 @@ KLCC  := 3.1579,101.7116
 GPX   ?= App/TestData/PJ-city-drive.gpx
 SPEED ?= 12
 
-.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop
+.PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop demo
 
 bootstrap:
 	git config core.hooksPath scripts/githooks
@@ -40,3 +40,7 @@ sim-drive:
 
 sim-stop:
 	xcrun simctl location booted clear
+
+# Records the demo walkthrough video to demo/openwaze-demo.mp4 (#52).
+demo: project
+	scripts/demo/record.sh

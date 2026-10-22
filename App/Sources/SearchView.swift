@@ -112,6 +112,7 @@ struct SearchView: View {
             TextField(prompt, text: $query)
                 .font(.title3.weight(.semibold))
                 .accessibilityLabel(Text("Search destination"))
+                .accessibilityIdentifier("search.field")
                 .focused($focused)
                 .submitLabel(.search)
                 .onSubmit { results.first.map(select) }
@@ -204,6 +205,7 @@ struct SearchView: View {
         case .done where !results.isEmpty:
             ForEach(results) { result in
                 PlaceRow(icon: "mappin.and.ellipse", title: result.name, subtitle: result.address) { select(result) }
+                    .accessibilityIdentifier("search.result")
                     .contextMenu {
                         Button(String(localized: "Set as Home"), systemImage: "house") { onSave(result, .home) }
                         Button(String(localized: "Set as Work"), systemImage: "briefcase") { onSave(result, .work) }

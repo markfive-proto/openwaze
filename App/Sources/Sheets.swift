@@ -31,6 +31,7 @@ struct ReportSheet: View {
                         }
                         .buttonStyle(TileButtonStyle())
                         .accessibilityLabel(Text("Report \(category.title)"))
+                        .accessibilityIdentifier("report.\(category.rawValue)")
                     }
                 }
             }

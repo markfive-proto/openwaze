@@ -29,6 +29,7 @@ struct DestinationCard: View {
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(onGo == nil)
+            .accessibilityIdentifier("destination.go")
         }
         .padding(.leading, Theme.Space.huge)
         .padding([.trailing, .top], Theme.Space.small)
@@ -126,6 +127,7 @@ struct TripCard: View {
                 Label("Start", systemImage: "location.north.fill")
             }
             .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("trip.start")
         }
     }
 
@@ -201,6 +203,7 @@ struct NavigationBar: View {
             Button(role: .destructive, action: onEnd) { Text("End") }
                 .buttonStyle(PrimaryButtonStyle(fill: Theme.danger))
                 .fixedSize(horizontal: !typeSize.isAccessibilitySize, vertical: false)
+                .accessibilityIdentifier("trip.end")
         }
         .padding(.horizontal, Theme.Space.huge)
         .padding(.vertical, Theme.Space.large)

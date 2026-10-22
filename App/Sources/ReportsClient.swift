@@ -143,7 +143,12 @@ struct ReportsClient {
     /// defaults to the local dev server; Release has no default, so a
     /// missing value is a loud failure, never a silent call to loopback.
     static let baseURL: URL? = {
-        let url = Self.url(from: Bundle.main.object(forInfoDictionaryKey: "OPENWAZE_API_URL") as? String)
+        var setting = Bundle.main.object(forInfoDictionaryKey: "OPENWAZE_API_URL") as? String
+        #if DEBUG
+            // Launch argument `-OPENWAZE_API_URL http://host:port` overrides it (demo recording, #52).
+            setting = UserDefaults.standard.string(forKey: "OPENWAZE_API_URL") ?? setting
+        #endif
+        let url = Self.url(from: setting)
         if url == nil {
             assertionFailure("OPENWAZE_API_URL is not set for this build configuration")
         }
