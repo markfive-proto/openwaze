@@ -1,0 +1,6 @@
+included:
+  - App
+opt_in_rules:
+  - empty_count
+disabled_rules:
+  - trailing_comma
