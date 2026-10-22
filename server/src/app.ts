@@ -1,6 +1,7 @@
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { mkdirSync } from 'node:fs';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -38,6 +39,73 @@ const JAM_BELOW_KMH = 15;
 const SLOW_BELOW_KMH = 40;
 const TRIP_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?Z$/;
+
+// Share ETA (#19). The share token is the link secret; the owner token posts updates and ends the trip.
+// Only SHA-256 hashes of both are stored, so a DB dump reveals neither live links nor owner rights.
+const TRIP_MAX_MS = 4 * HOUR;
+const TRIP_MIN_POST_GAP_MS = 5_000; // the app posts about every 15 s
+const TRIP_MAX_ACTIVE = 10_000;
+const TRIP_NAME_MAX = 100;
+const SHARE_TOKEN = /^[A-Za-z0-9_-]{22}$/; // 16 random bytes (128 bits), base64url
+const BEARER = /^Bearer ([A-Za-z0-9_-]{43})$/; // owner token: 32 random bytes, base64url
+const CONTROL_CHARS = /\p{Cc}/u;
+
+// Viewer page (GET /t/:token). MapLibre GL JS comes from a pinned jsDelivr URL with SRI: sha384 of the files
+// in the npm tarball, checked equal to what jsDelivr serves. Must stay >= 6.4.1 (CVE-2026-85061, known-vulns M1).
+const MAPLIBRE_BASE = 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.13.0/dist/';
+const MAPLIBRE = {
+  JS_URL: `${MAPLIBRE_BASE}maplibre-gl.mjs`,
+  JS_SRI: 'sha384-tG0qQdL7veKvVoyu6PbnmddDls/OVkTjaK9oVY5eq9afBA6zYptFui69Dx57duAh',
+  WORKER_URL: `${MAPLIBRE_BASE}maplibre-gl-worker.mjs`,
+  WORKER_SRI: 'sha384-vHxGRAh5VPNspVXjsLuI5wxrF/Jbzfyct4wTbGl6bu89rV2rGJm3cOzMTWIfHK0y',
+  CSS_URL: `${MAPLIBRE_BASE}maplibre-gl.css`,
+  CSS_SRI: 'sha384-yFNc3bs28S14jOJo1ZO9SnLiAmtyY2a3H9be8GkLMpDGlO5r1zZNP8fYu+fOCE/w',
+};
+const TILES = 'https://tiles.openfreemap.org';
+// No 'unsafe-inline' or 'unsafe-eval'. CDN sources are exact file paths, not the whole host. share.js fetches
+// the worker with SRI and starts it from a blob: URL (MapLibre itself would load it unchecked).
+const SHARE_HEADERS = {
+  'Content-Security-Policy': [
+    "default-src 'none'",
+    `script-src 'self' ${MAPLIBRE.JS_URL}`,
+    `style-src 'self' ${MAPLIBRE.CSS_URL}`,
+    `connect-src 'self' ${TILES} ${MAPLIBRE.WORKER_URL}`,
+    `img-src 'self' data: blob: ${TILES}`,
+    'worker-src blob:',
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+  ].join('; '),
+  'Referrer-Policy': 'no-referrer',
+  'X-Robots-Tag': 'noindex, nofollow',
+  'X-Content-Type-Options': 'nosniff',
+  'Cache-Control': 'no-store',
+};
+// server/public files, with {{KEY}} filled from MAPLIBRE so URLs and hashes live in one place.
+const publicFile = (name: string) =>
+  readFileSync(new URL(`../public/${name}`, import.meta.url), 'utf8').replace(/\{\{(\w+)\}\}/g, (m, k: string) =>
+    k in MAPLIBRE ? MAPLIBRE[k as keyof typeof MAPLIBRE] : m,
+  );
+const SHARE_HTML = publicFile('share.html');
+const SHARE_JS = publicFile('share.js');
+const SHARE_CSS = publicFile('share.css');
+
+const sha256 = (s: string) => createHash('sha256').update(s).digest();
+const newToken = (bytes: number) => randomBytes(bytes).toString('base64url');
+
+type TripRow = {
+  owner_hash: Uint8Array;
+  dest_lat: number;
+  dest_lng: number;
+  dest_name: string | null;
+  eta_at: number;
+  lat: number | null;
+  lng: number | null;
+  heading: number | null;
+  posted_at: number | null;
+  updated_at: number;
+  expires_at: number;
+};
 
 type Row = {
   id: string;
@@ -149,6 +217,21 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     CREATE INDEX IF NOT EXISTS probes_minute ON probes (minute);
     CREATE TABLE IF NOT EXISTS probe_posts (trip_id TEXT NOT NULL, at INTEGER NOT NULL); -- rate limit, 1 min
     CREATE INDEX IF NOT EXISTS probe_posts_trip ON probe_posts (trip_id, at);
+    -- Share ETA: one row per shared trip with only the latest position (no trail). Deleted on end, on
+    -- arrival, or by cleanup once expired (4 h after creation at most).
+    CREATE TABLE IF NOT EXISTS trips (
+      share_hash BLOB PRIMARY KEY, -- SHA-256 of the share token
+      owner_hash BLOB NOT NULL,    -- SHA-256 of the owner token
+      dest_lat REAL NOT NULL,
+      dest_lng REAL NOT NULL,
+      dest_name TEXT,
+      eta_at INTEGER NOT NULL,
+      lat REAL, lng REAL, heading REAL, -- latest position, NULL until the first update
+      posted_at INTEGER,                -- time of the latest position, for the rate limit
+      updated_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS trips_expires ON trips (expires_at);
   `);
 
   const q = {
@@ -198,6 +281,17 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     ),
     cleanupProbes: db.prepare('DELETE FROM probes WHERE minute <= ?'),
     cleanupProbePosts: db.prepare('DELETE FROM probe_posts WHERE at <= ?'),
+    activeTrips: db.prepare('SELECT COUNT(*) AS n FROM trips WHERE expires_at > ?'),
+    insertTrip: db.prepare(
+      `INSERT INTO trips (share_hash, owner_hash, dest_lat, dest_lng, dest_name, eta_at, updated_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    ),
+    trip: db.prepare('SELECT * FROM trips WHERE share_hash = ? AND expires_at > ?'),
+    moveTrip: db.prepare(
+      'UPDATE trips SET lat = ?, lng = ?, heading = ?, eta_at = ?, posted_at = ?, updated_at = ? WHERE share_hash = ?',
+    ),
+    endTrip: db.prepare('DELETE FROM trips WHERE share_hash = ?'),
+    cleanupTrips: db.prepare('DELETE FROM trips WHERE expires_at <= ?'),
   };
 
   const tx = <T>(fn: () => T): T => {
@@ -377,12 +471,132 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     );
   });
 
+  // Share ETA (#19). See docs/privacy.md section 5 for the design rules.
+  // etaAt: ISO 8601 UTC, from an hour ago (running late) to a day ahead.
+  const parseEta = (v: unknown, t: number) => {
+    const at = typeof v === 'string' && ISO_UTC.test(v) ? Date.parse(v) : NaN;
+    return at >= t - HOUR && at <= t + 24 * HOUR ? at : null;
+  };
+  const ETA_ERROR = 'etaAt must be ISO 8601 UTC, from 1 h ago to 24 h ahead';
+
+  // A malformed, unknown, ended or expired token all look the same: no row.
+  const findTrip = (shareToken: string) => {
+    if (!SHARE_TOKEN.test(shareToken)) return null;
+    const hash = sha256(shareToken);
+    const row = q.trip.get(hash, now()) as TripRow | undefined;
+    return row ? { hash, row } : null;
+  };
+  const notFound = (c: Context) => c.json({ error: 'trip not found or ended' }, 404);
+
+  // 401 without a well-formed bearer token, 403 when it is not this trip's owner token, else null.
+  const ownerCheck = (c: Context, row: TripRow) => {
+    const m = BEARER.exec(c.req.header('authorization') ?? '');
+    if (!m) {
+      c.header('WWW-Authenticate', 'Bearer');
+      return c.json({ error: 'owner token required' }, 401);
+    }
+    return timingSafeEqual(sha256(m[1]), row.owner_hash) ? null : c.json({ error: 'wrong owner token' }, 403);
+  };
+
+  app.post('/trips', limit, async (c) => {
+    const b = await readJson(c);
+    if (!b) return c.json({ error: 'body must be a JSON object' }, 400);
+    const d = b.destination as Record<string, unknown> | null | undefined;
+    if (!d || typeof d !== 'object' || Array.isArray(d))
+      return c.json({ error: 'destination must be an object {lat, lng, name?}' }, 400);
+    if (!isLat(d.lat)) return c.json({ error: 'destination.lat must be a number in -90..90' }, 400);
+    if (!isLng(d.lng)) return c.json({ error: 'destination.lng must be a number in -180..180' }, 400);
+    const name = typeof d.name === 'string' ? d.name.trim() : d.name;
+    if (name != null && (typeof name !== 'string' || !name || name.length > TRIP_NAME_MAX || CONTROL_CHARS.test(name)))
+      return c.json({ error: `destination.name must be 1-${TRIP_NAME_MAX} chars, no control characters` }, 400);
+    const t = now();
+    const eta = parseEta(b.etaAt, t);
+    if (eta === null) return c.json({ error: ETA_ERROR }, 400);
+
+    // ponytail: no accounts or IPs, so creating trips has no per-client limit; a global cap on live trips
+    // bounds the table (rows die within 4 h). Add App Attest or a per-IP limit at the proxy if abused.
+    const { n } = q.activeTrips.get(t) as { n: number };
+    if (n >= TRIP_MAX_ACTIVE) return c.json({ error: 'too many active trips, try again later' }, 503);
+
+    const shareToken = newToken(16);
+    const ownerToken = newToken(32);
+    const expiresAt = t + TRIP_MAX_MS;
+    q.insertTrip.run(sha256(shareToken), sha256(ownerToken), round4(d.lat), round4(d.lng), name ?? null, eta, t, expiresAt);
+    return c.json({ shareToken, ownerToken, expiresAt: iso(expiresAt) }, 201);
+  });
+
+  app.post('/trips/:shareToken/position', limit, async (c) => {
+    const trip = findTrip(c.req.param('shareToken'));
+    if (!trip) return notFound(c);
+    const denied = ownerCheck(c, trip.row);
+    if (denied) return denied;
+    const b = await readJson(c);
+    if (!b) return c.json({ error: 'body must be a JSON object' }, 400);
+    const { lat, lng, heading, etaAt, arrived } = b;
+    if (arrived !== undefined && typeof arrived !== 'boolean') return c.json({ error: 'arrived must be a boolean' }, 400);
+    if (arrived) {
+      q.endTrip.run(trip.hash); // arrival ends the share at once
+      return c.body(null, 204);
+    }
+    if (!isLat(lat)) return c.json({ error: 'lat must be a number in -90..90' }, 400);
+    if (!isLng(lng)) return c.json({ error: 'lng must be a number in -180..180' }, 400);
+    if (heading != null && !(isNum(heading) && heading >= 0 && heading <= 360))
+      return c.json({ error: 'heading must be a number in 0..360' }, 400);
+    const t = now();
+    const eta = parseEta(etaAt, t);
+    if (eta === null) return c.json({ error: ETA_ERROR }, 400);
+    if (trip.row.posted_at !== null && t - trip.row.posted_at < TRIP_MIN_POST_GAP_MS)
+      return c.json({ error: 'rate limit: 1 position per 5 s' }, 429);
+    // Overwrites the previous position in place: no trail is kept.
+    const h = isNum(heading) ? Math.round(heading) % 360 : null;
+    q.moveTrip.run(round4(lat), round4(lng), h, eta, t, t, trip.hash);
+    return c.body(null, 204);
+  });
+
+  app.post('/trips/:shareToken/end', (c) => {
+    const trip = findTrip(c.req.param('shareToken'));
+    if (!trip) return notFound(c);
+    const denied = ownerCheck(c, trip.row);
+    if (denied) return denied;
+    q.endTrip.run(trip.hash);
+    return c.body(null, 204);
+  });
+
+  app.get('/trips/:shareToken', (c) => {
+    c.header('Cache-Control', 'no-store');
+    c.header('Referrer-Policy', 'no-referrer');
+    c.header('X-Robots-Tag', 'noindex, nofollow');
+    const trip = findTrip(c.req.param('shareToken'));
+    if (!trip) return notFound(c);
+    const r = trip.row;
+    // Explicit allowlist: never the token hashes or posted_at.
+    return c.json({
+      position: r.lat === null ? null : { lat: r.lat, lng: r.lng, heading: r.heading },
+      destination: { lat: r.dest_lat, lng: r.dest_lng },
+      ...(r.dest_name === null ? {} : { destinationName: r.dest_name }),
+      etaAt: iso(r.eta_at),
+      updatedAt: iso(r.updated_at),
+      expiresAt: iso(r.expires_at),
+      active: true,
+    });
+  });
+
+  // The page is the same static HTML for every token, so nothing from the URL is rendered by the server.
+  // share.js reads the token from location.pathname and polls GET /trips/:token.
+  const serve = (body: string, type: string) => (c: Context) => c.body(body, 200, { ...SHARE_HEADERS, 'Content-Type': type });
+  app.get('/t/share.js', serve(SHARE_JS, 'text/javascript; charset=utf-8'));
+  app.get('/t/share.css', serve(SHARE_CSS, 'text/css; charset=utf-8'));
+  const sharePage = serve(SHARE_HTML, 'text/html; charset=utf-8');
+  app.get('/t/:shareToken', (c) => (SHARE_TOKEN.test(c.req.param('shareToken')) ? sharePage(c) : c.notFound()));
+
   const cleanup = () => q.cleanup.run(now() - HOUR).changes;
+  // Expired trips and their last position; server.ts runs this every minute.
+  const cleanupTrips = () => Number(q.cleanupTrips.run(now()).changes);
   // Probes run on their own 60 s timer (server.ts) so raw samples outlive the window by at most a minute.
   const cleanupProbes = () => {
     const t = now();
     return Number(q.cleanupProbes.run(t - PROBE_WINDOW_MS).changes) + Number(q.cleanupProbePosts.run(t - MIN).changes);
   };
 
-  return { app, db, cleanup, cleanupProbes };
+  return { app, db, cleanup, cleanupProbes, cleanupTrips };
 }

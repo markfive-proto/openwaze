@@ -17,6 +17,8 @@ Checked against `main` on 2026-10-22.
 | **`deviceId`** (client-chosen, 1-128 chars, no accounts) | Same server: `reports.device_id` and `votes.device_id`. Used for rate limits and one-vote-per-report. Never returned by the API. | Reports: as above. Votes: deleted with their report (cascade). | Server operator only. | The client picks it, so a user can rotate it. The app does not send reports yet and no `DeviceID` code exists in `App/Sources`. |
 | **Votes** (still there / gone) | `votes` table, tied to `deviceId` and report | Deleted with the report | Operator only | None yet |
 | **Speed probes** (#13, server side only; the app does not send them yet) | Same server, `probes` table: grid cell (lat/lng rounded to 3 decimals, about 110 m), heading bucket (8), minute, speed, random per-trip `tripId`. `probe_posts`: `tripId` and time, for the per-trip rate limit. No `deviceId`, no IP, no exact position or time is stored. | Samples: deleted once 15 min old (probe cleanup every minute, so at most about 16 min). `probe_posts`: 1 min. | `GET /traffic` returns only cell, heading bucket and level (free/slow/jam), no speeds or counts, for cells with at least 3 distinct trips (a noise floor, not anonymity: see section 5). `tripId` is never returned. Operator sees raw rows. | Opt-out in the app (to build, #22). |
+| **Shared trip** (share ETA #19, server side only; the app does not share yet) | Same server, `trips` table: destination (lat/lng rounded to 4 decimals, about 11 m), optional destination name, ETA, the **latest** position only (rounded to 4 decimals, heading), last update time. SHA-256 hashes of the share token and owner token, never the tokens. No `deviceId`, no IP, no position history. | Until the driver ends the trip, sends `arrived`, or 4 h after it started, whichever is first. End and arrival delete the row at once; expired rows are deleted by the trip cleanup within a minute. | Anyone holding the share link sees the latest position, destination, name and ETA via `GET /trips/:token` and the viewer page `/t/:token`. Operator sees raw rows. | The driver starts each share and can stop it any time (app side to build). |
+| **Share viewer page loads** | Viewers' browsers fetch MapLibre GL JS from jsDelivr (`cdn.jsdelivr.net`) and tiles from OpenFreeMap. `Referrer-Policy: no-referrer`, so neither gets the share URL. | Third party's policy | jsDelivr, OpenFreeMap (viewer IP, user agent) | Viewer's choice to open the link |
 | **IP address** | Whatever fronts the server (host, reverse proxy, CDN). The app code does not log IPs. `console.error` logs errors only. | **Unknown, set by the host.** Decide before production. | Host operator | None |
 | **Search text + rounded location bias** | Photon / Komoot (`photon.komoot.io`), from `Photon.swift`. Bias is rounded to 2 decimals (about 1 km). | Third party's policy | Komoot | Do not search |
 | **Route origin and destination** | OSRM public demo server (`router.project-osrm.org`), from `Router.swift`. **Sent at full precision, not rounded.** | Third party's policy | OSRM demo operators | Do not route. See gap G1. |
@@ -24,7 +26,7 @@ Checked against `main` on 2026-10-22.
 | **Saved places** | Planned local-only store. No `Places.swift` or SwiftData exists in the app yet. | On the device until the user deletes them | The user | Delete in app (to build) |
 | **GPS position for navigation** | Stays on the device. Core Location, "when in use" only (`project.yml`). | Not stored | The user | iOS location permission |
 
-Planned, not built: the app side of speed probes (#13), share ETA (#19), onboarding and settings (#22).
+Planned, not built: the app side of speed probes (#13) and share ETA (#19), onboarding and settings (#22).
 Their rules are in section 5.
 
 ### Gaps found
@@ -71,6 +73,7 @@ as personal data anyway.
 | Photon (Komoot) | Search text, rounded bias lat/lon, IP, app user agent | Public instance. **Dev-only at scale.** Self-host before heavy use. |
 | OSRM demo (`router.project-osrm.org`) | Exact origin and destination, IP, app user agent | **Dev-only.** See G1. |
 | Reports server (ours) | Report lat/lng, type, `deviceId`, IP | The only service we control. Host not chosen yet. |
+| jsDelivr (`cdn.jsdelivr.net`) | Share-ETA viewers only: IP, user agent, which MapLibre file. No referrer, so not the share link. | Pinned version, SRI-checked, so a CDN compromise cannot change the code. |
 
 Rules:
 - Each new third-party endpoint gets a row here, in the same PR.
@@ -141,9 +144,24 @@ Use these as acceptance criteria in the tickets.
   first, and the server deletes the trip's positions at expiry. Stopping early revokes it.
 - Keep only the latest position, not a history.
 - The viewer page loads no third-party script that could leak the token via a referrer
-  (self-host MapLibre GL JS, send `Referrer-Policy: no-referrer`). The tile source still
+  (self-host MapLibre GL JS or pin it with SRI, and send `Referrer-Policy: no-referrer`). The tile source still
   sees the viewer's IP.
 - The token appears in the URL path only; never log full URLs.
+- Built (server): `POST /trips` returns a 128-bit random share token and a separate 256-bit
+  owner token; the server stores only SHA-256 hashes of both. Updates and end need the owner
+  token (`Authorization: Bearer`). One row per trip holds only the latest position, rounded to
+  4 decimals, and is overwritten on each update (at most one per 5 s). The row is deleted on end,
+  on `arrived: true`, or by the trip cleanup (every minute) once 4 h have passed since creation;
+  updates never extend that. After that every call is `404`. The destination name is optional.
+  The server logs no URLs or tokens (only `console.error` of internal errors).
+- Viewer page: one static HTML page for every token, with the script in a separate same-origin
+  file. MapLibre GL JS is loaded from a pinned jsDelivr URL with Subresource Integrity on the
+  module, its worker and its CSS, instead of self-hosting it, so no npm dependency is added.
+  The CDN sees the viewer's IP but, with `Referrer-Policy: no-referrer`, never the token. Strict
+  CSP (no inline script, exact CDN file paths), `X-Robots-Tag: noindex`, no analytics, cookies
+  or storage. Shows the OpenStreetMap attribution.
+- Not enforceable on the server, so the app must do it: explicit start, a visible "sharing"
+  state, a stop button that calls end, and `arrived: true` on arrival.
 
 **All features**
 - No precise location to a third party. Round it (2 decimals) or drop it. Fix G1.
