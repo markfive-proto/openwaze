@@ -255,28 +255,3 @@ struct HomeView: View {
         }
     }
 }
-
-/// Current speed; a placeholder until speed and limits land (#15).
-struct SpeedBubble: View {
-    @Scaled private var size: CGFloat = Theme.fab
-
-    private var unit: String {
-        Locale.current.measurementSystem == .metric ? String(localized: "km/h") : String(localized: "mph")
-    }
-
-    var body: some View {
-        VStack(spacing: -2) {
-            Text(verbatim: "–").font(.title2.weight(.heavy)).monospacedDigit()
-            Text(unit).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.6)
-        .frame(width: size, height: size)
-        .background(Theme.surface, in: Circle())
-        .overlay(Circle().strokeBorder(Color.primary.opacity(0.85), lineWidth: 3))
-        .shadow(color: Theme.shadow, radius: 10, y: 4)
-        .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // glyph inside a fixed disc
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Speed unavailable"))
-    }
-}

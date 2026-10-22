@@ -103,6 +103,15 @@
     },
     "Something went wrong": {},
     "Source code": {},
+    "Speed %lld %@": {
+      "comment": "Speedometer VoiceOver: speed, unit"
+    },
+    "Speed %lld %@, limit %lld": {
+      "comment": "Speedometer VoiceOver: speed, unit, road speed limit"
+    },
+    "Speed %lld %@, limit %lld, over the limit": {
+      "comment": "Speedometer VoiceOver while over the speed limit"
+    },
     "Speed unavailable": {},
     "Start": {},
     "Start driving": {},

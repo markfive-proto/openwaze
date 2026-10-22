@@ -22,6 +22,7 @@ Checked against `main` on 2026-10-22.
 | **IP address** | Whatever fronts the server (host, reverse proxy, CDN). The app code does not log IPs. `console.error` logs errors only. | **Unknown, set by the host.** Decide before production. | Host operator | None |
 | **Search text + rounded location bias** | Photon / Komoot (`photon.komoot.io`), from `Photon.swift`. Bias is rounded to 2 decimals (about 1 km). | Third party's policy | Komoot | Do not search |
 | **Route origin and destination** | OSRM public demo server (`router.project-osrm.org`), from `Router.swift`. **Sent at full precision, not rounded.** | Third party's policy | OSRM demo operators | Do not route. See gap G1. |
+| **Speed-limit tile** (the 0.01 degree grid cell, about 1.1 km, the user is in; never the position) | Overpass API (`overpass-api.de`), from `SpeedLimit.swift`. At most one request in flight, with backoff. The answer (roads and `maxspeed`) is cached on the device for 7 days, at most 200 tiles, so each cell is asked for about once a week. | Third party's policy. Device cache: 7 days. | Overpass operators (FOSSGIS) | Do not open the map |
 | **Map tile requests** | OpenFreeMap (`tiles.openfreemap.org`), from `MapView.swift`. They see your IP and which tiles you load, which is roughly your area. | Third party's policy | OpenFreeMap | Do not use the map |
 | **Saved places** | Planned local-only store. No `Places.swift` or SwiftData exists in the app yet. | On the device until the user deletes them | The user | Delete in app (to build) |
 | **GPS position for navigation** | Stays on the device. Core Location, "when in use" only (`project.yml`). | Not stored | The user | iOS location permission |
@@ -72,6 +73,7 @@ as personal data anyway.
 | OpenFreeMap tiles | IP, tile requests (so rough area), user agent | Free, community-run. No account. |
 | Photon (Komoot) | Search text, rounded bias lat/lon, IP, app user agent | Public instance. **Dev-only at scale.** Self-host before heavy use. |
 | OSRM demo (`router.project-osrm.org`) | Exact origin and destination, IP, app user agent | **Dev-only.** See G1. |
+| Overpass API (`overpass-api.de`) | Grid cell (~1 km bbox) of the user, IP, app user agent | Public instance with a usage policy (no heavy use). **Dev-only at scale**: self-host or ship limits with the map before heavy use. |
 | Reports server (ours) | Report lat/lng, type, `deviceId`, IP | The only service we control. Host not chosen yet. |
 | jsDelivr (`cdn.jsdelivr.net`) | Share-ETA viewers only: IP, user agent, which MapLibre file. No referrer, and the token is never in a URL. | Pinned version. The module and worker run only after a `fetch` integrity check, the CSS has SRI, so a changed CDN file stops the map loading instead of running. |
 
@@ -222,7 +224,8 @@ Ready to localise (`String(localized:)`, add Bahasa Malaysia). Keep it short and
 >
 > **Searching and routes.** To find places and routes, the app sends your search words, your
 > start and end points, and your IP address to outside services (Photon and OSRM for search
-> and routes, OpenFreeMap for map tiles). They run outside Malaysia and have their own
+> and routes, OpenFreeMap for map tiles, Overpass for speed limits in your ~1 km area). They
+> run outside Malaysia and have their own
 > privacy policies.
 >
 > **Hazard reports.** If you report or confirm a hazard, we store its position, type, time and
