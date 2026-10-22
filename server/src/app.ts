@@ -45,13 +45,18 @@ const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?Z$/;
 const TRIP_MAX_MS = 4 * HOUR;
 const TRIP_MIN_POST_GAP_MS = 5_000; // the app posts about every 15 s
 const TRIP_MAX_ACTIVE = 10_000;
+const TRIP_CREATES_PER_MIN = 300; // global: 10k live trips take at least 33 min to fill
 const TRIP_NAME_MAX = 100;
+// The share token travels only in the X-Share-Token header and the viewer link's #fragment, never in a
+// request path, so access logs and proxies never see it.
 const SHARE_TOKEN = /^[A-Za-z0-9_-]{22}$/; // 16 random bytes (128 bits), base64url
 const BEARER = /^Bearer ([A-Za-z0-9_-]{43})$/; // owner token: 32 random bytes, base64url
 const CONTROL_CHARS = /\p{Cc}/u;
 
-// Viewer page (GET /t/:token). MapLibre GL JS comes from a pinned jsDelivr URL with SRI: sha384 of the files
-// in the npm tarball, checked equal to what jsDelivr serves. Must stay >= 6.4.1 (CVE-2026-85061, known-vulns M1).
+// Viewer page (GET /t/#<token>). MapLibre GL JS comes from a pinned jsDelivr URL. sri.js fetches the module and
+// its worker with these SRI hashes (sha384 of the npm tarball's files, equal to what jsDelivr serves) and runs
+// only the checked bytes, from blob: URLs; the CSS link carries its own hash. Must stay >= 6.4.1
+// (CVE-2026-85061, known-vulns M1).
 const MAPLIBRE_BASE = 'https://cdn.jsdelivr.net/npm/maplibre-gl@6.13.0/dist/';
 const MAPLIBRE = {
   JS_URL: `${MAPLIBRE_BASE}maplibre-gl.mjs`,
@@ -62,14 +67,15 @@ const MAPLIBRE = {
   CSS_SRI: 'sha384-yFNc3bs28S14jOJo1ZO9SnLiAmtyY2a3H9be8GkLMpDGlO5r1zZNP8fYu+fOCE/w',
 };
 const TILES = 'https://tiles.openfreemap.org';
-// No 'unsafe-inline' or 'unsafe-eval'. CDN sources are exact file paths, not the whole host. share.js fetches
-// the worker with SRI and starts it from a blob: URL (MapLibre itself would load it unchecked).
+// No 'unsafe-inline' or 'unsafe-eval'. No CDN host may run script directly: CDN files are only fetched (exact
+// paths) and run from blob: URLs that sri.js made from hash-checked bytes. blob: URLs can only be minted by
+// script already running on this origin.
 const SHARE_HEADERS = {
   'Content-Security-Policy': [
     "default-src 'none'",
-    `script-src 'self' ${MAPLIBRE.JS_URL}`,
+    "script-src 'self' blob:",
     `style-src 'self' ${MAPLIBRE.CSS_URL}`,
-    `connect-src 'self' ${TILES} ${MAPLIBRE.WORKER_URL}`,
+    `connect-src 'self' ${TILES} ${MAPLIBRE.JS_URL} ${MAPLIBRE.WORKER_URL}`,
     `img-src 'self' data: blob: ${TILES}`,
     'worker-src blob:',
     "base-uri 'none'",
@@ -89,6 +95,7 @@ const publicFile = (name: string) =>
 const SHARE_HTML = publicFile('share.html');
 const SHARE_JS = publicFile('share.js');
 const SHARE_CSS = publicFile('share.css');
+const SRI_JS = publicFile('sri.js');
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest();
 const newToken = (bytes: number) => randomBytes(bytes).toString('base64url');
@@ -232,6 +239,8 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
       expires_at INTEGER NOT NULL
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS trips_expires ON trips (expires_at);
+    CREATE TABLE IF NOT EXISTS trip_creates (at INTEGER NOT NULL); -- global create rate limit, kept 1 min
+    CREATE INDEX IF NOT EXISTS trip_creates_at ON trip_creates (at);
   `);
 
   const q = {
@@ -287,11 +296,17 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     ),
     trip: db.prepare('SELECT * FROM trips WHERE share_hash = ? AND expires_at > ?'),
+    // The rate limit is in the WHERE, so check and write are one statement: two concurrent posts cannot both
+    // pass. 0 changes means "too soon" (or the trip ended in between).
     moveTrip: db.prepare(
-      'UPDATE trips SET lat = ?, lng = ?, heading = ?, eta_at = ?, posted_at = ?, updated_at = ? WHERE share_hash = ?',
+      `UPDATE trips SET lat = :lat, lng = :lng, heading = :heading, eta_at = :eta, posted_at = :t, updated_at = :t
+       WHERE share_hash = :hash AND expires_at > :t AND (posted_at IS NULL OR posted_at <= :t - ${TRIP_MIN_POST_GAP_MS})`,
     ),
     endTrip: db.prepare('DELETE FROM trips WHERE share_hash = ?'),
     cleanupTrips: db.prepare('DELETE FROM trips WHERE expires_at <= ?'),
+    recentTripCreates: db.prepare('SELECT COUNT(*) AS n FROM trip_creates WHERE at > ?'),
+    insertTripCreate: db.prepare('INSERT INTO trip_creates (at) VALUES (?)'),
+    cleanupTripCreates: db.prepare('DELETE FROM trip_creates WHERE at <= ?'),
   };
 
   const tx = <T>(fn: () => T): T => {
@@ -479,8 +494,10 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
   };
   const ETA_ERROR = 'etaAt must be ISO 8601 UTC, from 1 h ago to 24 h ahead';
 
-  // A malformed, unknown, ended or expired token all look the same: no row.
-  const findTrip = (shareToken: string) => {
+  // The share token comes from the X-Share-Token header (never the path, so it stays out of access logs).
+  // A missing, malformed, unknown, ended or expired token all look the same: no row.
+  const findTrip = (c: Context) => {
+    const shareToken = c.req.header('x-share-token') ?? '';
     if (!SHARE_TOKEN.test(shareToken)) return null;
     const hash = sha256(shareToken);
     const row = q.trip.get(hash, now()) as TripRow | undefined;
@@ -513,20 +530,27 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     const eta = parseEta(b.etaAt, t);
     if (eta === null) return c.json({ error: ETA_ERROR }, 400);
 
-    // ponytail: no accounts or IPs, so creating trips has no per-client limit; a global cap on live trips
-    // bounds the table (rows die within 4 h). Add App Attest or a per-IP limit at the proxy if abused.
+    // ponytail: creation is keyed on nothing (no accounts, no IPs; `limit` above is only the 1 KB body cap).
+    // Two global caps: TRIP_CREATES_PER_MIN slows a flood, TRIP_MAX_ACTIVE bounds the table (rows die in 4 h).
+    // A flood can still fill the 10k pool in about 33 min and lock real drivers out of sharing until rows
+    // expire (availability, not privacy). Real fix: App Attest on create (#46) or a per-IP limit at the proxy.
+    const recent = (q.recentTripCreates.get(t - MIN) as { n: number }).n;
+    if (recent >= TRIP_CREATES_PER_MIN) return c.json({ error: 'too many new trips, try again in a minute' }, 429);
     const { n } = q.activeTrips.get(t) as { n: number };
     if (n >= TRIP_MAX_ACTIVE) return c.json({ error: 'too many active trips, try again later' }, 503);
 
     const shareToken = newToken(16);
     const ownerToken = newToken(32);
     const expiresAt = t + TRIP_MAX_MS;
-    q.insertTrip.run(sha256(shareToken), sha256(ownerToken), round4(d.lat), round4(d.lng), name ?? null, eta, t, expiresAt);
+    tx(() => {
+      q.insertTripCreate.run(t);
+      q.insertTrip.run(sha256(shareToken), sha256(ownerToken), round4(d.lat), round4(d.lng), name ?? null, eta, t, expiresAt);
+    });
     return c.json({ shareToken, ownerToken, expiresAt: iso(expiresAt) }, 201);
   });
 
-  app.post('/trips/:shareToken/position', limit, async (c) => {
-    const trip = findTrip(c.req.param('shareToken'));
+  app.post('/trips/current/position', limit, async (c) => {
+    const trip = findTrip(c);
     if (!trip) return notFound(c);
     const denied = ownerCheck(c, trip.row);
     if (denied) return denied;
@@ -545,16 +569,15 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     const t = now();
     const eta = parseEta(etaAt, t);
     if (eta === null) return c.json({ error: ETA_ERROR }, 400);
-    if (trip.row.posted_at !== null && t - trip.row.posted_at < TRIP_MIN_POST_GAP_MS)
-      return c.json({ error: 'rate limit: 1 position per 5 s' }, 429);
     // Overwrites the previous position in place: no trail is kept.
-    const h = isNum(heading) ? Math.round(heading) % 360 : null;
-    q.moveTrip.run(round4(lat), round4(lng), h, eta, t, t, trip.hash);
+    const heading360 = isNum(heading) ? Math.round(heading) % 360 : null;
+    const row = { lat: round4(lat), lng: round4(lng), heading: heading360, eta, t, hash: trip.hash };
+    if (Number(q.moveTrip.run(row).changes) === 0) return c.json({ error: 'rate limit: 1 position per 5 s' }, 429);
     return c.body(null, 204);
   });
 
-  app.post('/trips/:shareToken/end', (c) => {
-    const trip = findTrip(c.req.param('shareToken'));
+  app.post('/trips/current/end', (c) => {
+    const trip = findTrip(c);
     if (!trip) return notFound(c);
     const denied = ownerCheck(c, trip.row);
     if (denied) return denied;
@@ -562,11 +585,11 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     return c.body(null, 204);
   });
 
-  app.get('/trips/:shareToken', (c) => {
+  app.get('/trips/current', (c) => {
     c.header('Cache-Control', 'no-store');
     c.header('Referrer-Policy', 'no-referrer');
     c.header('X-Robots-Tag', 'noindex, nofollow');
-    const trip = findTrip(c.req.param('shareToken'));
+    const trip = findTrip(c);
     if (!trip) return notFound(c);
     const r = trip.row;
     // Explicit allowlist: never the token hashes or posted_at.
@@ -581,17 +604,21 @@ export function createApp({ dbPath = ':memory:', now = () => Date.now() } = {}) 
     });
   });
 
-  // The page is the same static HTML for every token, so nothing from the URL is rendered by the server.
-  // share.js reads the token from location.pathname and polls GET /trips/:token.
+  // Viewer link: /t/#<shareToken>. Browsers never send the #fragment, so the server only ever sees GET /t/.
+  // share.js reads location.hash and polls GET /trips/current with the X-Share-Token header.
   const serve = (body: string, type: string) => (c: Context) => c.body(body, 200, { ...SHARE_HEADERS, 'Content-Type': type });
+  app.get('/t/', serve(SHARE_HTML, 'text/html; charset=utf-8'));
   app.get('/t/share.js', serve(SHARE_JS, 'text/javascript; charset=utf-8'));
+  app.get('/t/sri.js', serve(SRI_JS, 'text/javascript; charset=utf-8'));
   app.get('/t/share.css', serve(SHARE_CSS, 'text/css; charset=utf-8'));
-  const sharePage = serve(SHARE_HTML, 'text/html; charset=utf-8');
-  app.get('/t/:shareToken', (c) => (SHARE_TOKEN.test(c.req.param('shareToken')) ? sharePage(c) : c.notFound()));
 
   const cleanup = () => q.cleanup.run(now() - HOUR).changes;
-  // Expired trips and their last position; server.ts runs this every minute.
-  const cleanupTrips = () => Number(q.cleanupTrips.run(now()).changes);
+  // Expired trips and their last position, plus the 1-min create log; server.ts runs this every minute.
+  const cleanupTrips = () => {
+    const t = now();
+    q.cleanupTripCreates.run(t - MIN);
+    return Number(q.cleanupTrips.run(t).changes);
+  };
   // Probes run on their own 60 s timer (server.ts) so raw samples outlive the window by at most a minute.
   const cleanupProbes = () => {
     const t = now();

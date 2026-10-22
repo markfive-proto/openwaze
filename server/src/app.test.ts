@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { beforeEach, test } from 'node:test';
 import { createApp } from './app.ts';
 
@@ -518,16 +519,21 @@ const startTrip = async (over: Record<string, unknown> = {}) => {
   const res = await post('/trips', tripBody(over));
   return { res, body: await res.json() };
 };
-const ownerPost = (path: string, body: unknown, auth?: string) =>
+// The share token goes in X-Share-Token, never the path.
+const ownerPost = (path: string, shareToken: string, body: unknown, auth?: string) =>
   app.request(path, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...(auth === undefined ? {} : { authorization: auth }) },
+    headers: {
+      'content-type': 'application/json',
+      'x-share-token': shareToken,
+      ...(auth === undefined ? {} : { authorization: auth }),
+    },
     body: JSON.stringify(body),
   });
 const move = (s: Share, over: Record<string, unknown> = {}, auth = `Bearer ${s.ownerToken}`) =>
-  ownerPost(`/trips/${s.shareToken}/position`, { lat: 3.15, lng: 101.7, heading: 90, etaAt: ETA, ...over }, auth);
-const endTrip = (s: Share, auth = `Bearer ${s.ownerToken}`) => ownerPost(`/trips/${s.shareToken}/end`, {}, auth);
-const view = (shareToken: string) => app.request(`/trips/${shareToken}`);
+  ownerPost('/trips/current/position', s.shareToken, { lat: 3.15, lng: 101.7, heading: 90, etaAt: ETA, ...over }, auth);
+const endTrip = (s: Share, auth = `Bearer ${s.ownerToken}`) => ownerPost('/trips/current/end', s.shareToken, {}, auth);
+const view = (shareToken: string) => app.request('/trips/current', { headers: { 'x-share-token': shareToken } });
 const tripRows = () => db.prepare('SELECT * FROM trips').all() as Record<string, unknown>[];
 
 test('trips: create returns a 128-bit URL-safe share token, a separate owner token, 4 h expiry', async () => {
@@ -622,16 +628,18 @@ test('trips: only the latest position is kept, no trail', async () => {
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
     .all()
     .map((r) => (r as { name: string }).name);
-  assert.deepEqual(tables.filter((n) => /trip|position|track|trail/i.test(n)), ['trips'], 'no history table');
+  assert.deepEqual(tables.filter((n) => /trip|position|track|trail/i.test(n)).sort(), ['trip_creates', 'trips']);
+  const createCols = db.prepare('PRAGMA table_info(trip_creates)').all().map((r) => (r as { name: string }).name);
+  assert.deepEqual(createCols, ['at'], 'the create log holds a time only: no position, no trip link');
 });
 
 test('trips: owner auth, missing or malformed token 401, wrong token 403', async () => {
   const s = (await startTrip()).body;
   const other = (await startTrip()).body;
-  const res = await ownerPost(`/trips/${s.shareToken}/position`, { lat: 3, lng: 101, etaAt: ETA });
+  const res = await ownerPost('/trips/current/position', s.shareToken, { lat: 3, lng: 101, etaAt: ETA });
   assert.equal(res.status, 401);
   assert.equal(res.headers.get('www-authenticate'), 'Bearer');
-  assert.equal((await ownerPost(`/trips/${s.shareToken}/end`, {})).status, 401);
+  assert.equal((await ownerPost('/trips/current/end', s.shareToken, {})).status, 401);
   for (const auth of ['', `Basic ${s.ownerToken}`, `Bearer ${s.ownerToken}x`, `Bearer ${s.shareToken}`, s.ownerToken]) {
     assert.equal((await move(s, {}, auth)).status, 401, auth);
     assert.equal((await endTrip(s, auth)).status, 401, auth);
@@ -660,6 +668,46 @@ test('trips: rate limit 1 position per 5 s per trip', async () => {
   assert.equal((await move(other)).status, 204, 'other trips unaffected');
   clock += 1;
   assert.equal((await move(s)).status, 204);
+});
+
+test('trips: concurrent position posts cannot both pass the rate limit', async () => {
+  const s = (await startTrip()).body;
+  const codes = (await Promise.all([1, 2, 3, 4].map((i) => move(s, { lat: 3 + i / 100 })))).map((r) => r.status);
+  assert.deepEqual([...codes].sort(), [204, 429, 429, 429], codes.join());
+});
+
+test('trips: token is only accepted in X-Share-Token, never in the path', async () => {
+  const s = (await startTrip()).body;
+  assert.equal((await app.request(`/trips/${s.shareToken}`)).status, 404);
+  assert.equal((await app.request('/trips/current')).status, 404, 'no header');
+  const res = await app.request(`/trips/${s.shareToken}/position`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${s.ownerToken}` },
+    body: JSON.stringify({ lat: 3, lng: 101, etaAt: ETA }),
+  });
+  assert.equal(res.status, 404);
+  assert.equal((await view(s.shareToken)).status, 200);
+});
+
+test('trips: at most 300 creates per minute (global), then 429; window slides', async () => {
+  for (let i = 0; i < 300; i++) assert.equal((await post('/trips', tripBody())).status, 201);
+  assert.equal((await post('/trips', tripBody())).status, 429);
+  clock += MIN;
+  assert.equal((await post('/trips', tripBody())).status, 201);
+  cleanupTrips();
+  assert.equal((db.prepare('SELECT COUNT(*) AS n FROM trip_creates').get() as { n: number }).n, 1, 'old log rows deleted');
+});
+
+test('trips: at most 10,000 live trips, then 503', async () => {
+  const ins = db.prepare(
+    'INSERT INTO trips (share_hash, owner_hash, dest_lat, dest_lng, eta_at, updated_at, expires_at) VALUES (?, ?, 0, 0, 0, 0, ?)',
+  );
+  db.exec('BEGIN');
+  for (let i = 0; i < 10_000; i++) ins.run(Buffer.from(`k${i}`), Buffer.from('o'), clock + MIN);
+  db.exec('COMMIT');
+  assert.equal((await post('/trips', tripBody())).status, 503);
+  clock += MIN;
+  assert.equal((await post('/trips', tripBody())).status, 201, 'expired trips free the pool');
 });
 
 test('trips: end deletes the trip and its position; later calls 404', async () => {
@@ -699,42 +747,66 @@ test('trips: unknown or malformed share tokens 404', async () => {
     assert.equal((await view(t)).status, 404, t);
 });
 
-test('share page: static HTML, strict CSP, SRI on MapLibre >= 6.4.1, no inline script', async () => {
-  const s = (await startTrip()).body;
-  const res = await app.request(`/t/${s.shareToken}`);
+test('share page: static HTML at /t/, strict CSP, no CDN script source, no inline script', async () => {
+  const res = await app.request('/t/');
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type') ?? '', /^text\/html/);
   assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
   assert.match(res.headers.get('x-robots-tag') ?? '', /noindex/);
   const csp = res.headers.get('content-security-policy') ?? '';
   assert.match(csp, /default-src 'none'/);
-  assert.match(csp, /script-src 'self' https:\/\/cdn\.jsdelivr\.net\/npm\/maplibre-gl@[\d.]+\/dist\/maplibre-gl\.mjs;/);
+  assert.match(csp, /script-src 'self' blob:;/, 'no CDN may run script directly');
+  assert.match(csp, /connect-src [^;]*https:\/\/cdn\.jsdelivr\.net\/npm\/maplibre-gl@[\d.]+\/dist\/maplibre-gl\.mjs/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|\*/);
   const html = await res.text();
-  assert.ok(!html.includes(s.shareToken), 'token not echoed into the page');
   assert.ok(!html.includes('{{'), 'template filled');
-  const version = /maplibre-gl@(\d+\.\d+\.\d+)\//.exec(html)?.[1] ?? '0.0.0';
-  const [maj, min, pat] = version.split('.').map(Number);
-  assert.ok(maj > 6 || (maj === 6 && (min > 4 || (min === 4 && pat >= 1))), `maplibre-gl ${version} < 6.4.1`);
+  assert.doesNotMatch(html, /modulepreload/);
   const cdnTags = html.match(/<link[^>]+cdn\.jsdelivr\.net[^>]*>/g) ?? [];
-  assert.equal(cdnTags.length, 2, 'module preload and stylesheet');
-  for (const tag of cdnTags) {
-    assert.match(tag, /integrity="sha384-[A-Za-z0-9+/]{64}"/, tag);
-    assert.match(tag, /crossorigin="anonymous"/, tag);
-  }
+  assert.equal(cdnTags.length, 1, 'stylesheet only');
+  assert.match(cdnTags[0], /integrity="sha384-[A-Za-z0-9+/]{64}"/);
+  assert.match(cdnTags[0], /crossorigin="anonymous"/);
   const scripts = html.match(/<script\b[^>]*>/g) ?? [];
   assert.deepEqual(scripts, ['<script type="module" src="/t/share.js">'], 'only the same-origin script');
   assert.match(html, /<meta name="referrer" content="no-referrer">/);
+  assert.equal((await app.request('/t/AAAAAAAAAAAAAAAAAAAAAA')).status, 404, 'old token-in-path links are gone');
 
-  const js = await app.request('/t/share.js');
-  assert.equal(js.status, 200);
-  assert.match(js.headers.get('content-type') ?? '', /^text\/javascript/);
-  assert.equal(js.headers.get('content-security-policy'), csp);
-  const code = await js.text();
-  assert.match(code, /integrity: 'sha384-[A-Za-z0-9+/]{64}'/, 'worker fetched with SRI');
+  for (const f of ['share.js', 'sri.js', 'share.css']) {
+    const r = await app.request(`/t/${f}`);
+    assert.equal(r.status, 200, f);
+    assert.equal(r.headers.get('content-security-policy'), csp, f);
+  }
+  const code = await (await app.request('/t/share.js')).text();
+  assert.match(code, /location\.hash/, 'token read from the fragment');
+  assert.match(code, /'X-Share-Token': token/);
   assert.match(code, /POLL_MS = 15_000/);
   assert.match(code, /OpenStreetMap/);
   assert.doesNotMatch(code, /innerHTML|localStorage|document\.cookie|analytics|gtag/);
-  assert.equal((await app.request('/t/share.css')).status, 200);
-  assert.equal((await app.request('/t/not-a-token')).status, 404);
+});
+
+test('share page: MapLibre >= 6.4.1, module and worker only run from SRI-checked blobs', async () => {
+  const code = await (await app.request('/t/share.js')).text();
+  // No static or dynamic import of a CDN URL: the only imports are sri.js and the checked blob.
+  assert.deepEqual(code.match(/\bimport\b[^;\n]*/g), ["import { checkedBlobUrl } from '/t/sri.js'", 'import(lib)']);
+  const checked = [...code.matchAll(/checkedBlobUrl\('([^']+)', '([^']+)'\)/g)].map((m) => [m[1], m[2]]);
+  assert.equal(checked.length, 2);
+  for (const [url, sri] of checked) {
+    assert.match(url, /^https:\/\/cdn\.jsdelivr\.net\/npm\/maplibre-gl@\d+\.\d+\.\d+\/dist\/maplibre-gl(-worker)?\.mjs$/);
+    assert.match(sri, /^sha384-[A-Za-z0-9+/]{64}$/);
+  }
+  assert.deepEqual(checked.map(([u]) => u.split('/').pop()), ['maplibre-gl.mjs', 'maplibre-gl-worker.mjs']);
+  const version = /maplibre-gl@(\d+\.\d+\.\d+)\//.exec(code)?.[1] ?? '0.0.0';
+  const [maj, min, pat] = version.split('.').map(Number);
+  assert.ok(maj > 6 || (maj === 6 && (min > 4 || (min === 4 && pat >= 1))), `maplibre-gl ${version} < 6.4.1`);
+});
+
+test('sri.js: tampered bytes are rejected, matching bytes become a blob URL', async () => {
+  const { checkedBlobUrl } = await import('../public/sri.js');
+  const good = 'export const ok = 1;';
+  const sri = `sha384-${createHash('sha384').update(good).digest('base64')}`;
+  const url = (s: string) => `data:text/javascript,${encodeURIComponent(s)}`;
+  const blob = await checkedBlobUrl(url(good), sri);
+  assert.match(blob, /^blob:/);
+  assert.equal(await (await fetch(blob)).text(), good, 'exactly the checked bytes');
+  await assert.rejects(checkedBlobUrl(url(`${good} alert(1);`), sri), 'tampered module must not load');
+  await assert.rejects(checkedBlobUrl(url(good), ''), /integrity hash required/);
 });

@@ -1,23 +1,29 @@
 // Share-ETA viewer (#19). Served by the API at /t/share.js; {{...}} is filled from MAPLIBRE in src/app.ts.
 // No trackers, cookies or web storage. Everything from the API is rendered with textContent.
-import { LngLatBounds, Map, Marker, setWorkerUrl } from '{{JS_URL}}';
+import { checkedBlobUrl } from '/t/sri.js';
 
 const POLL_MS = 15_000;
-const token = location.pathname.split('/').pop();
+// The link is /t/#<token>: the fragment never leaves the browser, and the API gets it in a header.
+const token = decodeURIComponent(location.hash.slice(1));
 const statusEl = document.getElementById('status');
 const destEl = document.getElementById('dest');
 const say = (text) => { statusEl.textContent = text; };
 
-// MapLibre would load its worker from the CDN without an integrity check. Fetch it with SRI instead and
-// start it from a same-origin blob: URL (CSP allows workers from blob: only).
+// MapLibre's module and its worker are fetched with SRI and run only from blob: URLs of the checked bytes.
+// CSP lets no CDN URL run as script, so an unchecked copy cannot load by any other path.
+let maplibre;
 try {
-  const res = await fetch('{{WORKER_URL}}', { integrity: '{{WORKER_SRI}}', credentials: 'omit', referrerPolicy: 'no-referrer' });
-  if (!res.ok) throw new Error(`worker ${res.status}`);
-  setWorkerUrl(URL.createObjectURL(new Blob([await res.text()], { type: 'text/javascript' })));
+  const [lib, worker] = await Promise.all([
+    checkedBlobUrl('{{JS_URL}}', '{{JS_SRI}}'),
+    checkedBlobUrl('{{WORKER_URL}}', '{{WORKER_SRI}}'),
+  ]);
+  maplibre = await import(lib);
+  maplibre.setWorkerUrl(worker);
 } catch {
   say('Map failed to load');
-  throw new Error('maplibre worker failed its integrity check or did not load');
+  throw new Error('maplibre-gl failed its integrity check or did not load');
 }
+const { LngLatBounds, Map, Marker } = maplibre;
 
 const map = new Map({
   container: 'map',
@@ -53,9 +59,10 @@ const ended = () => {
 };
 
 async function poll() {
+  if (!/^[A-Za-z0-9_-]{22}$/.test(token)) return ended(); // not a link we made
   let res;
   try {
-    res = await fetch(`/trips/${encodeURIComponent(token)}`, { cache: 'no-store' });
+    res = await fetch('/trips/current', { cache: 'no-store', headers: { 'X-Share-Token': token } });
   } catch {
     say('Reconnecting…');
     return;

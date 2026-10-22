@@ -95,13 +95,17 @@ privacy guarantee.
 
 ## Share ETA (#19)
 
-| Method | Path | Auth | Body | Success |
+The share token is never in a request path, so access logs and proxies do not see it. API calls
+send it in the `X-Share-Token` header; the viewer link is `/t/#<shareToken>`, and browsers never
+send the `#fragment` to the server.
+
+| Method | Path | Headers | Body | Success |
 |---|---|---|---|---|
-| POST | `/trips` | none | `{destination: {lat, lng, name?}, etaAt}` | `201 {shareToken, ownerToken, expiresAt}` |
-| POST | `/trips/:shareToken/position` | `Bearer <ownerToken>` | `{lat, lng, heading?, etaAt}` or `{arrived: true}` | `204` |
-| POST | `/trips/:shareToken/end` | `Bearer <ownerToken>` | none | `204` |
-| GET | `/trips/:shareToken` | none | | `200` trip view |
-| GET | `/t/:shareToken` | none | | `200` viewer page (HTML) |
+| POST | `/trips` | | `{destination: {lat, lng, name?}, etaAt}` | `201 {shareToken, ownerToken, expiresAt}` |
+| POST | `/trips/current/position` | `X-Share-Token`, `Authorization: Bearer <ownerToken>` | `{lat, lng, heading?, etaAt}` or `{arrived: true}` | `204` |
+| POST | `/trips/current/end` | `X-Share-Token`, `Authorization: Bearer <ownerToken>` | none | `204` |
+| GET | `/trips/current` | `X-Share-Token` | | `200` trip view |
+| GET | `/t/` | | | `200` viewer page (HTML); share link `/t/#<shareToken>` |
 
 Trip view (`position` is `null` until the first update; `destinationName` only if set):
 
@@ -114,24 +118,33 @@ Trip view (`position` is `null` until the first update; `destinationName` only i
 
 Rules:
 - `shareToken`: 16 random bytes (128 bits) as base64url, 22 chars. It is the secret in the share
-  link `/t/<shareToken>`. `ownerToken`: 32 random bytes as base64url, 43 chars. Only the app keeps
+  link `/t/#<shareToken>`. `ownerToken`: 32 random bytes as base64url, 43 chars. Only the app keeps
   it. The server stores SHA-256 hashes of both tokens, never the tokens.
+- A missing or malformed `X-Share-Token` is `404`, the same as an unknown, ended or expired trip.
 - `etaAt` is ISO 8601 UTC, from 1 h ago to 24 h ahead. `lat`/`lng` as for reports, `heading`
   0..360 or `null`, `name` 1-100 chars with no control characters (trimmed).
 - Positions and the destination are rounded to 4 decimals (about 11 m), `heading` to whole degrees.
-- Only the latest position is kept; each update overwrites it. 1 update per 5 s per trip (`429`).
+- Only the latest position is kept; each update overwrites it. 1 update per 5 s per trip (`429`),
+  checked in the same SQL statement as the write, so concurrent posts cannot both pass.
 - No or malformed `Authorization` is `401`; a wrong owner token is `403`.
 - A trip ends on `end`, on `{arrived: true}`, or 4 h after `POST /trips` (updates never extend
   it). End and arrival delete the row at once; the trip cleanup deletes expired rows every
   minute. After that every trip call is `404`, the same as for an unknown token.
-- At most 10,000 live trips (`503`), since creation has no per-client limit.
-- Bodies over 1 KB get `413`. `GET /trips/:shareToken` is `Cache-Control: no-store`.
-- Viewer page: the same static HTML for every token. `/t/share.js` reads the token from the URL,
-  polls `GET /trips/:token` every 15 s, and shows "Trip ended" on `404`. MapLibre GL JS 6.13.0
-  (needs 6.4.1+, see `docs/security/known-vulns.md` M1) comes from jsDelivr with SRI hashes on the
-  module, worker and CSS (in `MAPLIBRE` in `src/app.ts`). Headers: strict CSP with no inline
-  script, `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`, `no-store`. Map:
-  OpenFreeMap liberty style with OpenStreetMap attribution. No analytics.
+- Creation is keyed on nothing (no accounts, no IPs). Two global caps instead: 300 creates per
+  rolling minute (`429`) and 10,000 live trips (`503`). Remaining risk: a flood can still fill
+  the pool in about 33 minutes and block real drivers from sharing until those trips expire
+  (availability, not privacy). Fix: App Attest on create (#46) or a per-IP limit at the proxy.
+- Bodies over 1 KB get `413`. `GET /trips/current` is `Cache-Control: no-store`.
+- Viewer page: the same static HTML for every token. `/t/share.js` reads the token from
+  `location.hash`, polls `GET /trips/current` every 15 s, and shows "Trip ended" on `404`.
+  MapLibre GL JS 6.13.0 (needs 6.4.1+, see `docs/security/known-vulns.md` M1) comes from
+  jsDelivr. `/t/sri.js` fetches the module and its worker with `fetch(url, {integrity})` and
+  runs only those checked bytes, from `blob:` URLs; a hash mismatch rejects the fetch, so the map
+  does not load. The CSS link has its own `integrity`. Hashes live in `MAPLIBRE` in
+  `src/app.ts`. CSP: `script-src 'self' blob:` (no CDN may run script directly), no inline
+  script, CDN files allowed only as exact `connect-src`/`style-src` paths. Also
+  `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex, nofollow`, `no-store`. Map: OpenFreeMap
+  liberty style with OpenStreetMap attribution. No analytics.
 - To bump MapLibre: change the version in `src/app.ts`, then recompute each hash from the npm
   tarball (`npm pack maplibre-gl@X`, `openssl dgst -sha384 -binary <file> | openssl base64 -A`)
   and check it equals the jsDelivr file.
@@ -159,11 +172,12 @@ curl -s 'localhost:8787/traffic?minLat=3.1&minLng=101.6&maxLat=3.2&maxLng=101.8'
 # share ETA: create, post a position (use the tokens from the reply), view, open the page, end
 curl -s -X POST localhost:8787/trips -H 'content-type: application/json' \
   -d '{"destination":{"lat":3.1579,"lng":101.7116,"name":"KLCC"},"etaAt":"'"$(date -u -v+12M +%Y-%m-%dT%H:%M:%SZ)"'"}'
-curl -s -X POST localhost:8787/trips/SHARE/position -H 'content-type: application/json' \
-  -H 'authorization: Bearer OWNER' -d '{"lat":3.139,"lng":101.6869,"heading":45,"etaAt":"'"$(date -u -v+12M +%Y-%m-%dT%H:%M:%SZ)"'"}'
-curl -s localhost:8787/trips/SHARE
-open http://localhost:8787/t/SHARE
-curl -s -X POST localhost:8787/trips/SHARE/end -H 'authorization: Bearer OWNER'
+curl -s -X POST localhost:8787/trips/current/position -H 'content-type: application/json' \
+  -H 'x-share-token: SHARE' -H 'authorization: Bearer OWNER' \
+  -d '{"lat":3.139,"lng":101.6869,"heading":45,"etaAt":"'"$(date -u -v+12M +%Y-%m-%dT%H:%M:%SZ)"'"}'
+curl -s localhost:8787/trips/current -H 'x-share-token: SHARE'
+open 'http://localhost:8787/t/#SHARE'
+curl -s -X POST localhost:8787/trips/current/end -H 'x-share-token: SHARE' -H 'authorization: Bearer OWNER'
 
 # invalid input -> 400
 curl -s -X POST localhost:8787/reports -H 'content-type: application/json' \
