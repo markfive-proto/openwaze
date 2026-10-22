@@ -14,6 +14,10 @@ struct MapView: UIViewRepresentable {
     /// calls `onUnfollow`; the app sets this back to re-centre.
     var following = true
     var onUnfollow: () -> Void = {}
+    /// Bump to snap the camera back to the user when not navigating.
+    var recenter = 0
+    /// Height of the bottom chrome; keeps the route and OSM attribution above it.
+    var bottomInset: CGFloat = 0
 
     /// What the map last showed, so SwiftUI updates only redo what changed.
     struct State: Equatable {
@@ -21,6 +25,8 @@ struct MapView: UIViewRepresentable {
         var route: UUID?
         var navigating = false
         var following = true
+        var recenter = 0
+        var bottomInset: CGFloat = 0
     }
 
     static let styleURL = URL(string: "https://tiles.openfreemap.org/styles/liberty")!
@@ -39,31 +45,36 @@ struct MapView: UIViewRepresentable {
 
     func updateUIView(_ map: MLNMapView, context: Context) {
         let coordinator = context.coordinator
-        let state = State(destination: destination, route: route?.id, navigating: navigating, following: following)
+        let state = State(
+            destination: destination, route: route?.id, navigating: navigating, following: following,
+            recenter: recenter, bottomInset: bottomInset
+        )
         guard state != coordinator.shown else { return }
         let previous = coordinator.shown
         coordinator.shown = state
         coordinator.route = route
         coordinator.onUnfollow = onUnfollow
+        let animated = !context.environment.accessibilityReduceMotion
+        coordinator.animated = animated
+        // Heading-up driving rotates the map constantly; the compass would just sit behind the banner.
+        map.compassView.compassVisibility = navigating ? .hidden : .adaptive
         coordinator.drawRoute(on: map)
         // Keep the OSM attribution and logo visible above the bottom card.
-        let bottom = 8 + (destination == nil ? 0 : DestinationCard.height)
+        let bottom = 8 + bottomInset
         map.logoViewMargins = CGPoint(x: 8, y: bottom)
         map.attributionButtonMargins = CGPoint(x: 8, y: bottom)
         if destination != previous.destination {
-            map.removeAnnotations(map.annotations ?? [])
-            if let destination {
-                let pin = MLNPointAnnotation()
-                pin.coordinate = destination.coordinate
-                pin.title = destination.name
-                map.addAnnotation(pin)
-            }
+            Self.pin(destination, on: map)
+        }
+        if recenter != previous.recenter, !navigating {
+            map.setUserTrackingMode(.follow, animated: animated, completionHandler: nil)
+            return
         }
         if navigating {
             guard following, !previous.navigating || !previous.following else { return }
             coordinator.movingCamera = true // our own camera moves are not the user panning
             map.setZoomLevel(17, animated: false)
-            map.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
+            map.setUserTrackingMode(.followWithCourse, animated: animated, completionHandler: nil)
             coordinator.movingCamera = false
         } else if let route {
             guard route.id != previous.route || previous.navigating else { return }
@@ -72,15 +83,26 @@ struct MapView: UIViewRepresentable {
             map.direction = 0
             map.setVisibleCoordinates(
                 &line, count: UInt(line.count),
-                edgePadding: UIEdgeInsets(top: 120, left: 40, bottom: 40 + DestinationCard.height, right: 40),
-                animated: true
+                edgePadding: UIEdgeInsets(top: 120, left: 40, bottom: 40 + Theme.fab + bottomInset, right: 40),
+                animated: animated
             )
         } else if let destination {
             guard destination != previous.destination || previous.route != nil else { return }
             map.userTrackingMode = .none
-            map.setCenter(destination.coordinate, zoomLevel: 16, animated: true)
+            map.setCenter(destination.coordinate, zoomLevel: 16, animated: animated)
         } else {
             map.userTrackingMode = .follow
+        }
+    }
+
+    /// Replaces the destination pin.
+    static func pin(_ destination: Destination?, on map: MLNMapView) {
+        map.removeAnnotations(map.annotations ?? [])
+        if let destination {
+            let pin = MLNPointAnnotation()
+            pin.coordinate = destination.coordinate
+            pin.title = destination.name
+            map.addAnnotation(pin)
         }
     }
 
@@ -89,6 +111,7 @@ struct MapView: UIViewRepresentable {
         var route: Route?
         var onUnfollow: () -> Void = {}
         var movingCamera = false
+        var animated = true
         private var zoomedToFirstFix = false
 
         func mapView(_: MLNMapView, didChange mode: MLNUserTrackingMode, animated _: Bool) {
@@ -97,7 +120,11 @@ struct MapView: UIViewRepresentable {
             DispatchQueue.main.async(execute: onUnfollow) // not during a SwiftUI update
         }
 
-        func mapView(_ mapView: MLNMapView, didFinishLoading _: MLNStyle) {
+        func mapView(_ mapView: MLNMapView, didFinishLoading style: MLNStyle) {
+            // Flat map: 3D buildings hide the road and the route at driving zooms.
+            for layer in style.layers where layer is MLNFillExtrusionStyleLayer {
+                layer.isVisible = false
+            }
             drawRoute(on: mapView) // a route may arrive before the style
         }
 
@@ -116,7 +143,7 @@ struct MapView: UIViewRepresentable {
             let source = MLNShapeSource(identifier: "route", shape: shape, options: nil)
             style.addSource(source)
             let layer = MLNLineStyleLayer(identifier: "route", source: source)
-            layer.lineColor = NSExpression(forConstantValue: UIColor.systemBlue)
+            layer.lineColor = NSExpression(forConstantValue: UIColor(Theme.accentFill))
             layer.lineWidth = NSExpression(forConstantValue: 7)
             layer.lineCap = NSExpression(forConstantValue: "round")
             layer.lineJoin = NSExpression(forConstantValue: "round")
@@ -136,7 +163,7 @@ struct MapView: UIViewRepresentable {
             mapView.setCenter(
                 location.coordinate,
                 zoomLevel: Zoom.level(forAccuracy: location.horizontalAccuracy),
-                animated: true
+                animated: animated
             )
         }
     }
@@ -171,12 +198,14 @@ struct LocationHint: View {
     @Environment(\.openURL) private var openURL
 
     var body: some View {
-        Button("Enable location in Settings") {
+        Button {
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 openURL(url)
             }
+        } label: {
+            Label("Enable location in Settings", systemImage: "location.slash.fill")
         }
-        .buttonStyle(.borderedProminent)
-        .padding(.bottom, 40)
+        .buttonStyle(PrimaryButtonStyle())
+        .padding(.horizontal, Theme.Space.medium)
     }
 }
