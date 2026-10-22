@@ -10,18 +10,33 @@
     "%@ · %@": {
       "comment": "Remaining distance · arrival time"
     },
+    "About": {},
+    "Accident": {},
+    "Arrive at %@, %@ left": {},
     "At the roundabout, take the %@ exit": {
       "comment": "Argument is an ordinal, e.g. 2nd"
     },
+    "Avoid tolls": {},
+    "Cancel": {},
+    "Clear search": {},
     "Close": {},
+    "Closure": {},
+    "Coming soon": {},
     "Continue": {},
     "Continue straight": {},
     "Current location unavailable": {},
+    "Dark map": {},
     "Done": {},
+    "Driving": {},
+    "Enable location in Settings": {},
     "End": {},
     "Enter the roundabout": {},
     "Exit the roundabout": {},
     "Finding route…": {},
+    "Flood": {},
+    "Go": {},
+    "Hazard": {},
+    "Home": {},
     "In %@, %@": {
       "comment": "Spoken prompt: distance then lower-cased maneuver, e.g. In 500 m, turn left"
     },
@@ -29,17 +44,37 @@
       "comment": "Keep left / Keep right"
     },
     "Keep straight": {},
+    "km/h": {},
     "left": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
     "Make a U-turn": {},
+    "Map data © OpenStreetMap contributors": {},
+    "Menu": {},
     "Merge": {},
+    "mph": {},
+    "No results": {},
     "No route found": {},
+    "Police": {},
     "Re-centre": {},
+    "Remove": {},
+    "Report": {},
+    "Report %@": {},
     "right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
     "Routing unavailable, check connection": {},
+    "Save place": {},
+    "Search destination": {},
+    "Search for an address to save": {},
+    "Search for your home address": {},
+    "Search for your work address": {},
+    "Search unavailable, check connection": {},
+    "Searching…": {},
+    "Set as Home": {},
+    "Set as Work": {},
+    "Set location": {},
+    "Settings": {},
     "sharp left": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
@@ -52,16 +87,28 @@
     "slight right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
+    "Source code": {},
+    "Speed unavailable": {},
     "Start": {},
     "Start driving": {},
     "Start on %@": {
       "comment": "First instruction; argument is a road name"
     },
+    "Starts a route": {},
     "Take the exit": {},
     "Take the ramp": {},
+    "To %@": {},
+    "Toll": {},
+    "Traffic": {},
+    "Try again": {},
     "Turn %@": {
       "comment": "Turn left / Turn slight right; argument is a direction word"
     },
+    "Units": {},
+    "Version": {},
+    "Voice guidance": {},
+    "Where to?": {},
+    "Work": {},
     "You have arrived": {},
     "Your destination is on the left": {},
     "Your destination is on the right": {}
