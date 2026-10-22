@@ -14,6 +14,17 @@ enum Theme {
     static let surface = Color(light: 0xFFFFFF, dark: 0x1B1A22)
     static let surfaceRaised = Color(light: 0xF1F0F6, dark: 0x2B2935)
     static let shadow = Color.black.opacity(0.18)
+    /// Fill behind white text for a secondary choice (slate, 7.6:1 with white).
+    static let neutralFill = Color(hex: 0x475569)
+    /// Report categories by `ReportType.colorToken`; each dark enough for a white icon (>= 3:1).
+    static let reportColors: [String: Color] = [
+        "reportPolice": Color(hex: 0x2563EB),
+        "reportAccident": Color(hex: 0xDC2626),
+        "reportHazard": Color(hex: 0xC26A00),
+        "reportTraffic": Color(hex: 0xEA580C),
+        "reportClosure": Color(hex: 0x475569),
+        "reportFlood": Color(hex: 0x0E7490),
+    ]
 
     // MARK: Size
 

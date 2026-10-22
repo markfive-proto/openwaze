@@ -27,11 +27,21 @@ struct HomeView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
     @State private var location: LocationAuthorization
     @State private var model: HomeModel
     @State private var sheet: Sheet?
     /// Height of the collapsed bottom chrome, for the map's route fit and attribution.
     @State private var bottomInset: CGFloat = 0
+    @State private var reports = ReportsStore()
+    /// Reports already asked about this trip.
+    @State private var stillThere = StillThere()
+    /// The "Still there?" card showing, if any.
+    @State private var prompt: Report?
+    /// A failed report or vote, shown briefly at the top.
+    @State private var toast: String?
+    /// Bumped after a report is accepted, for the success haptic.
+    @State private var reported = 0
 
     init(context: ModelContext, storeFailed: Bool) {
         let location = LocationAuthorization()
@@ -52,10 +62,15 @@ struct HomeView: View {
             MapView(
                 destination: model.destination, route: navigator.route,
                 navigating: navigator.phase == .navigating, following: model.following,
-                onUnfollow: { model.following = false }, recenter: model.recenter, bottomInset: bottomInset
+                onUnfollow: { model.following = false }, recenter: model.recenter, bottomInset: bottomInset,
+                reports: reports.reports, onRegion: { reports.setRegion($0) }
             )
             .ignoresSafeArea()
-            VStack(spacing: 0) {
+            VStack(spacing: Theme.Space.medium) {
+                if let toast {
+                    Toast(text: toast)
+                        .transition(Theme.slide(.top, reduceMotion: reduceMotion))
+                }
                 top
                 Spacer(minLength: 0)
                 bottom
@@ -64,9 +79,11 @@ struct HomeView: View {
         .animation(Theme.motion(reduceMotion), value: navigator.phase)
         .animation(Theme.motion(reduceMotion), value: model.destination)
         .animation(Theme.motion(reduceMotion), value: model.searching)
+        .animation(Theme.motion(reduceMotion), value: toast)
+        .animation(Theme.motion(reduceMotion), value: prompt?.id)
         .sheet(item: $sheet) { sheet in
             switch sheet {
-            case .report: ReportSheet(onPick: { _ in }) // posting (and its haptic) is #11
+            case .report: ReportSheet(onPick: post)
             case .settings: SettingsView()
             }
         }
@@ -87,7 +104,30 @@ struct HomeView: View {
             actions: { Button("OK") {} },
             message: { Text(model.problem ?? "") }
         )
-        .onChange(of: navigator.phase) { model.following = true }
+        .sensoryFeedback(.success, trigger: reported)
+        .onChange(of: navigator.phase) { _, phase in
+            model.following = true
+            if phase != .navigating {
+                prompt = nil
+                stillThere = StillThere() // the next trip asks afresh
+            }
+        }
+        .onChange(of: navigator.progress) { askAboutReportAhead() }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .active {
+                reports.start()
+            } else {
+                reports.stop()
+            }
+        }
+        .task(id: toast) {
+            guard toast != nil, await (try? Task.sleep(for: .seconds(4))) != nil else { return }
+            toast = nil
+        }
+        .task(id: prompt?.id) {
+            guard prompt != nil, await (try? Task.sleep(for: .seconds(20))) != nil else { return }
+            prompt = nil // unanswered: passed it, or not looking
+        }
         .onAppear { location.request() }
     }
 
@@ -97,6 +137,10 @@ struct HomeView: View {
                 ManeuverBanner(step: step, distance: progress.distanceToManeuver)
                     .transition(Theme.slide(.top, reduceMotion: reduceMotion))
             }
+            if let prompt {
+                StillThereCard(report: prompt) { answer(prompt, stillThere: $0) }
+                    .transition(Theme.slide(.top, reduceMotion: reduceMotion))
+            }
         } else if model.showsMenu {
             HStack {
                 Button(String(localized: "Menu"), systemImage: "line.3.horizontal") { sheet = .settings }
@@ -104,6 +148,39 @@ struct HomeView: View {
                 Spacer()
             }
             .padding(.horizontal, Theme.Space.large)
+        }
+    }
+
+    /// Posts at the user's position; the haptic waits for the server's yes.
+    private func post(_ type: ReportType) {
+        guard let here = location.coordinate else {
+            toast = String(localized: "Current location unavailable")
+            return
+        }
+        Task {
+            do {
+                try await reports.report(type, at: here)
+                reported += 1
+            } catch {
+                toast = reportProblem(error)
+            }
+        }
+    }
+
+    private func askAboutReportAhead() {
+        guard prompt == nil, navigator.phase == .navigating,
+              let route = navigator.route, let progress = navigator.progress else { return }
+        prompt = stillThere.next(on: route, at: progress, reports: reports.votable, mine: reports.mine)
+    }
+
+    private func answer(_ report: Report, stillThere: Bool) {
+        prompt = nil
+        Task {
+            do {
+                try await reports.vote(report.id, stillThere: stillThere)
+            } catch {
+                toast = reportProblem(error)
+            }
         }
     }
 

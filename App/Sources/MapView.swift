@@ -18,6 +18,10 @@ struct MapView: UIViewRepresentable {
     var recenter = 0
     /// Height of the bottom chrome; keeps the route and OSM attribution above it.
     var bottomInset: CGFloat = 0
+    /// Crowd reports to show as icons (ReportsUI.swift).
+    var reports: [Report] = []
+    /// Called with the visible area after the map moves.
+    var onRegion: (BBox) -> Void = { _ in }
 
     /// What the map last showed, so SwiftUI updates only redo what changed.
     struct State: Equatable {
@@ -45,6 +49,7 @@ struct MapView: UIViewRepresentable {
 
     func updateUIView(_ map: MLNMapView, context: Context) {
         let coordinator = context.coordinator
+        coordinator.sync(reports: reports, onRegion: onRegion, on: map)
         let state = State(
             destination: destination, route: route?.id, navigating: navigating, following: following,
             recenter: recenter, bottomInset: bottomInset
@@ -95,9 +100,9 @@ struct MapView: UIViewRepresentable {
         }
     }
 
-    /// Replaces the destination pin.
+    /// Replaces the destination pin, leaving report icons alone.
     static func pin(_ destination: Destination?, on map: MLNMapView) {
-        map.removeAnnotations(map.annotations ?? [])
+        map.removeAnnotations((map.annotations ?? []).filter { !($0 is ReportAnnotation) })
         if let destination {
             let pin = MLNPointAnnotation()
             pin.coordinate = destination.coordinate
@@ -110,6 +115,8 @@ struct MapView: UIViewRepresentable {
         var shown = State()
         var route: Route?
         var onUnfollow: () -> Void = {}
+        var onRegion: (BBox) -> Void = { _ in }
+        var reports: [Report] = []
         var movingCamera = false
         var animated = true
         private var zoomedToFirstFix = false

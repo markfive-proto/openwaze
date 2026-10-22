@@ -1,49 +1,6 @@
 import SwiftUI
 
-/// Raw values match the reports API `type` field.
-enum ReportType: String, CaseIterable, Identifiable {
-    case police, accident, hazard, traffic, closure, flood
-
-    var id: String {
-        rawValue
-    }
-
-    var title: String {
-        switch self {
-        case .police: String(localized: "Police")
-        case .accident: String(localized: "Accident")
-        case .hazard: String(localized: "Hazard")
-        case .traffic: String(localized: "Traffic")
-        case .closure: String(localized: "Closure")
-        case .flood: String(localized: "Flood")
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .police: "shield.lefthalf.filled"
-        case .accident: "car.side.rear.and.collision.and.car.side.front"
-        case .hazard: "exclamationmark.triangle.fill"
-        case .traffic: "car.2.fill"
-        case .closure: "xmark.octagon.fill"
-        case .flood: "water.waves"
-        }
-    }
-
-    /// Each dark enough for a white icon (>= 3:1).
-    var color: Color {
-        switch self {
-        case .police: Color(hex: 0x2563EB)
-        case .accident: Color(hex: 0xDC2626)
-        case .hazard: Color(hex: 0xC26A00)
-        case .traffic: Color(hex: 0xEA580C)
-        case .closure: Color(hex: 0x475569)
-        case .flood: Color(hex: 0x0E7490)
-        }
-    }
-}
-
-/// Grid of report categories. Posting to the reports API is #11.
+/// Grid of report categories; `onPick` posts it (HomeView).
 struct ReportSheet: View {
     let onPick: (ReportType) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -91,7 +48,7 @@ struct ReportSheet: View {
 
     private func tile(_ category: ReportType) -> some View {
         VStack(spacing: Theme.Space.medium) {
-            Image(systemName: category.icon)
+            Image(systemName: category.symbol)
                 .font(.system(size: disc * 0.44, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: disc, height: disc)

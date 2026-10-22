@@ -23,6 +23,12 @@ targets:
         UIBackgroundModes: [location, audio]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        OPENWAZE_API_URL: $(OPENWAZE_API_URL)
+        # Plain HTTP only to the local dev server (#11); anything else stays HTTPS.
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openwaze.app
@@ -33,6 +39,12 @@ targets:
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: OpenWaze shows your position on the map.
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_EMIT_LOC_STRINGS: YES # String(localized:) keys -> Localizable.xcstrings
+      # Reports server (server/). Debug defaults to the local dev server;
+      # Release has no default and must set it (CI, or xcodebuild OPENWAZE_API_URL=...),
+      # else the app asserts and shows the reports as unavailable.
+      configs:
+        Debug:
+          OPENWAZE_API_URL: http://localhost:8787
   OpenWazeTests:
     type: bundle.unit-test
     platform: iOS

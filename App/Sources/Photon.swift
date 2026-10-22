@@ -23,7 +23,6 @@ enum Photon {
     typealias Fetch = (URLRequest) async throws -> (Data, URLResponse)
 
     static let baseURL = URL(string: "https://photon.komoot.io/api/")!
-    static let userAgent = "OpenWaze/0.1 (+https://github.com/markfive-proto/openwaze)"
     static let limit = 8
 
     static func search(
@@ -32,7 +31,7 @@ enum Photon {
         fetch: Fetch = { try await URLSession.shared.data(for: $0) }
     ) async throws -> [Destination] {
         var request = URLRequest(url: url(query: query, near: near))
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTP.userAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await fetch(request)
         if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
             throw PhotonError.http(status: http.statusCode)
@@ -102,16 +101,7 @@ enum Photon {
     }
 
     struct Response: Decodable {
-        let features: [Lossy<Feature>]
-    }
-
-    /// Decodes to nil instead of throwing, so one bad element is dropped alone.
-    struct Lossy<Value: Decodable>: Decodable {
-        let value: Value?
-
-        init(from decoder: Decoder) throws {
-            value = try? Value(from: decoder)
-        }
+        let features: [HTTP.Lossy<Feature>]
     }
 
     struct Feature: Decodable {

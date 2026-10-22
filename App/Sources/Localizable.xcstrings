@@ -4,6 +4,9 @@
     "%@ onto %@": {
       "comment": "Maneuver then road name, e.g. Turn left onto Jalan Ampang"
     },
+    "%@ still there?": {
+      "comment": "Prompt while driving towards a crowd report, e.g. Police still there?"
+    },
     "%@ towards %@": {
       "comment": "Maneuver then signposted destination, e.g. Take the exit towards KLIA"
     },
@@ -25,6 +28,7 @@
     "Continue": {},
     "Continue straight": {},
     "Couldn't save the place. Try again.": {},
+    "Couldn't send the report. Check your connection.": {},
     "Current location unavailable": {},
     "Dark map": {},
     "Done": {},
@@ -36,6 +40,9 @@
     "Finding route…": {},
     "Flood": {},
     "Go": {},
+    "Gone": {
+      "comment": "Answer to 'still there?': the reported hazard has cleared"
+    },
     "Hazard": {},
     "Home": {},
     "In %@, %@": {
@@ -62,6 +69,10 @@
     "Remove": {},
     "Report": {},
     "Report %@": {},
+    "Reported %@ · %lld still there · %lld gone": {
+      "comment": "Map callout for a crowd report: relative age, then vote counts"
+    },
+    "Reports aren't available in this build.": {},
     "right": {
       "comment": "Direction word inside Turn %@ / Keep %@"
     },
@@ -99,8 +110,12 @@
       "comment": "First instruction; argument is a road name"
     },
     "Starts a route": {},
+    "Still there": {
+      "comment": "Answer to 'still there?': the reported hazard is still there"
+    },
     "Take the exit": {},
     "Take the ramp": {},
+    "That report has already cleared.": {},
     "To %@": {},
     "Toll": {},
     "Traffic": {},
@@ -109,11 +124,14 @@
       "comment": "Turn left / Turn slight right; argument is a direction word"
     },
     "Units": {},
+    "Unlock your phone to send reports.": {},
     "Version": {},
     "Voice guidance": {},
     "Where to?": {},
     "Work": {},
     "You have arrived": {},
+    "You've already voted on this report.": {},
+    "You've sent a lot of reports this hour. Try again later.": {},
     "Your destination is on the left": {},
     "Your destination is on the right": {}
   },

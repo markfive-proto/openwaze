@@ -103,7 +103,7 @@ final class RouterTests: XCTestCase {
             sent = request
             return (self.fixture, Self.response(status: 200))
         }
-        XCTAssertEqual(sent?.value(forHTTPHeaderField: "User-Agent"), Photon.userAgent)
+        XCTAssertEqual(sent?.value(forHTTPHeaderField: "User-Agent"), HTTP.userAgent)
         XCTAssertEqual(route.steps.count, 4)
     }
 
