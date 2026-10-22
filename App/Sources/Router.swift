@@ -71,7 +71,7 @@ enum Router {
         fetch: Fetch = { try await URLSession.shared.data(for: $0) }
     ) async throws -> Route {
         var request = URLRequest(url: url(from: origin, to: destination))
-        request.setValue(Photon.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(HTTP.userAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await fetch(request)
         if let http = response as? HTTPURLResponse, !(200 ..< 300).contains(http.statusCode) {
             // OSRM reports "no route" as a 400 with a JSON code.
@@ -128,7 +128,7 @@ enum Router {
 
     struct Response: Decodable {
         let code: String?
-        let routes: [Photon.Lossy<RouteDTO>]?
+        let routes: [HTTP.Lossy<RouteDTO>]?
     }
 
     struct RouteDTO: Decodable {
@@ -143,7 +143,7 @@ enum Router {
     }
 
     struct Leg: Decodable {
-        let steps: [Photon.Lossy<StepDTO>]?
+        let steps: [HTTP.Lossy<StepDTO>]?
     }
 
     struct StepDTO: Decodable {

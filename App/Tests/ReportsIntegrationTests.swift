@@ -6,15 +6,17 @@ import XCTest
 /// (`cd server && npm run dev`); skipped when none is reachable, as on CI.
 final class ReportsIntegrationTests: XCTestCase {
     func client() -> ReportsClient {
-        ReportsClient(deviceID: "it-\(UUID().uuidString)")
+        let id = "it-\(UUID().uuidString)"
+        return ReportsClient(deviceID: { id })
     }
 
     func testTwoDevicesSeeAndVoteOnEachOthersReports() async throws {
-        var health = URLRequest(url: ReportsClient.baseURL.appending(path: "health"), timeoutInterval: 2)
+        let base = try XCTUnwrap(ReportsClient.baseURL)
+        var health = URLRequest(url: base.appending(path: "health"), timeoutInterval: 2)
         health.httpMethod = "GET"
         guard let (_, response) = try? await URLSession.shared.data(for: health),
               (response as? HTTPURLResponse)?.statusCode == 200
-        else { throw XCTSkip("No reports server at \(ReportsClient.baseURL)") }
+        else { throw XCTSkip("No reports server at \(base)") }
 
         let (alice, bob) = (client(), client())
         // A random spot, so repeated runs do not see each other.

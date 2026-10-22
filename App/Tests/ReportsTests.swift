@@ -28,7 +28,7 @@ final class FakeServer {
     }
 
     var client: ReportsClient {
-        ReportsClient(baseURL: URL(string: "http://test.local:8787/")!, deviceID: "device-1", fetch: fetch)
+        ReportsClient(baseURL: URL(string: "http://test.local:8787/")!, deviceID: { "device-1" }, fetch: fetch)
     }
 }
 
@@ -76,6 +76,41 @@ final class ReportsClientTests: XCTestCase {
         XCTAssertEqual(reports[0].createdAt, ISO8601DateFormatter().date(from: "2026-10-22T10:00:00Z"))
         XCTAssertEqual(reports[1].coordinate.latitude, 1.3521)
         XCTAssertThrowsError(try ReportsClient.parse(Data(#"{"error": "nope"}"#.utf8)))
+    }
+
+    func testDatesWithWholeOrFractionalSeconds() throws {
+        let reports = try ReportsClient.parse(Data("""
+        [\(reportJSON("whole", created: "2026-10-22T10:00:00Z")),
+         \(reportJSON("millis", created: "2026-10-22T10:00:00.250Z", expires: "2026-10-22T11:00:00.000Z"))]
+        """.utf8))
+        XCTAssertEqual(reports.map(\.id), ["whole", "millis"])
+        let whole = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-22T10:00:00Z"))
+        XCTAssertEqual(reports[0].createdAt, whole)
+        XCTAssertEqual(reports[1].createdAt.timeIntervalSince(whole), 0.25, accuracy: 0.001)
+        XCTAssertEqual(reports[1].expiresAt, whole.addingTimeInterval(3600))
+    }
+
+    func testFailsClearlyWithoutServerOrDeviceID() async {
+        var client = server.client
+        client.baseURL = nil
+        do {
+            _ = try await client.list(BBox(minLat: 0, minLng: 0, maxLat: 1, maxLng: 1))
+            XCTFail("expected notConfigured")
+        } catch {
+            XCTAssertEqual(error as? ReportsError, .notConfigured)
+        }
+        client = server.client
+        client.deviceID = { nil }
+        do {
+            _ = try await client.vote("x", stillThere: true)
+            XCTFail("expected noDeviceID")
+        } catch {
+            XCTAssertEqual(error as? ReportsError, .noDeviceID)
+        }
+        XCTAssertTrue(server.requests.isEmpty)
+        let store = ReportsStore(client: { var c = server.client; c.baseURL = nil; return c }(),
+                                 defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        XCTAssertEqual(store.lastError as? ReportsError, .notConfigured)
     }
 
     func testListSendsBBoxQuery() async throws {
@@ -141,33 +176,67 @@ final class ReportsClientTests: XCTestCase {
 
     func testBaseURLFromBuildSetting() {
         let hosted = "https://reports.example.org/v1/"
-        XCTAssertEqual(ReportsClient.url(from: hosted).absoluteString, hosted)
-        XCTAssertEqual(ReportsClient.url(from: nil), ReportsClient.defaultBaseURL)
-        XCTAssertEqual(ReportsClient.url(from: ""), ReportsClient.defaultBaseURL)
-        XCTAssertEqual(ReportsClient.url(from: "$(OPENWAZE_API_URL)"), ReportsClient.defaultBaseURL)
-        // The app's Info.plist carries the build setting.
-        XCTAssertEqual(ReportsClient.baseURL.absoluteString, "http://localhost:8787")
+        XCTAssertEqual(ReportsClient.url(from: hosted)?.absoluteString, hosted)
+        XCTAssertNil(ReportsClient.url(from: nil))
+        XCTAssertNil(ReportsClient.url(from: ""))
+        XCTAssertNil(ReportsClient.url(from: "$(OPENWAZE_API_URL)"))
+        XCTAssertNil(ReportsClient.url(from: "localhost:8787"))
+        // Debug's Info.plist carries the local default.
+        XCTAssertEqual(ReportsClient.baseURL?.absoluteString, "http://localhost:8787")
     }
 
     func testBBoxClampsToServerLimits() {
+        func assertValid(_ box: BBox, line: UInt = #line) {
+            XCTAssertLessThanOrEqual(box.minLat, box.maxLat, line: line)
+            XCTAssertLessThanOrEqual(box.minLng, box.maxLng, line: line)
+            XCTAssertLessThanOrEqual(box.maxLat - box.minLat, BBox.maxSpan + 1e-9, line: line)
+            XCTAssertLessThanOrEqual(box.maxLng - box.minLng, BBox.maxSpan + 1e-9, line: line)
+            XCTAssertTrue((-90 ... 90).contains(box.minLat) && (-90 ... 90).contains(box.maxLat), line: line)
+            XCTAssertTrue((-180 ... 180).contains(box.minLng) && (-180 ... 180).contains(box.maxLng), line: line)
+        }
         let wide = BBox(minLat: -10, minLng: 95, maxLat: 10, maxLng: 115).clamped
         XCTAssertEqual(wide, BBox(minLat: -1, minLng: 104, maxLat: 1, maxLng: 106))
         let small = BBox(minLat: 3.1, minLng: 101.6, maxLat: 3.2, maxLng: 101.8)
         XCTAssertEqual(small.clamped, small)
-        XCTAssertEqual(BBox(minLat: 88, minLng: 0, maxLat: 95, maxLng: 1).clamped.maxLat, 90)
+
+        // Past the pole: shifted inside ±90, not inverted.
+        let polar = BBox(minLat: 88, minLng: 0, maxLat: 95, maxLng: 1).clamped
+        XCTAssertEqual(polar, BBox(minLat: 88, minLng: 0, maxLat: 90, maxLng: 1))
+        XCTAssertEqual(BBox(minLat: 89.5, minLng: 0, maxLat: 95, maxLng: 1).clamped.minLat, 88)
+        XCTAssertEqual(BBox(minLat: 2, minLng: 0, maxLat: 1, maxLng: 1).clamped.minLat, 1) // swapped input
+
+        // Antimeridian: unwrapped, then shifted to the side of its centre.
+        let fiji = BBox(minLat: -18, minLng: 179, maxLat: -17, maxLng: -179.5).clamped // centre 179.75
+        XCTAssertEqual(fiji.maxLng, 180)
+        XCTAssertEqual(fiji.minLng, 178.5, accuracy: 1e-9)
+        let wrapped = BBox(minLat: 3, minLng: 461.6, maxLat: 3.1, maxLng: 461.8).clamped // KL, one world east
+        XCTAssertEqual(wrapped.minLng, 101.6, accuracy: 1e-9)
+        for box in [wide, polar, fiji, wrapped, BBox(minLat: -100, minLng: -200, maxLat: 100, maxLng: 200).clamped] {
+            assertValid(box)
+        }
+        XCTAssertFalse(BBox(minLat: 2, minLng: 2, maxLat: 1, maxLng: 1).contains(.init(latitude: 1.5, longitude: 1.5)))
     }
 
-    func testDeviceIDIsGeneratedOnceAndStored() {
+    func testDeviceIDIsStoredAndResetOnReinstall() throws {
         let service = "org.openwaze.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: service))
         defer {
             SecItemDelete([kSecClass: kSecClassGenericPassword, kSecAttrService: service] as CFDictionary)
+            defaults.removePersistentDomain(forName: service)
         }
-        let first = DeviceID.load(service: service)
+        let device = DeviceID(service: service, defaults: defaults)
+        let first = try XCTUnwrap(device.value)
         XCTAssertNotNil(UUID(uuidString: first))
-        XCTAssertEqual(DeviceID.load(service: service), first)
-        XCTAssertEqual(DeviceID.current, DeviceID.current)
-        XCTAssertNotEqual(DeviceID.load(service: service + ".other"), first)
-        SecItemDelete([kSecClass: kSecClassGenericPassword, kSecAttrService: service + ".other"] as CFDictionary)
+
+        device.clearCache() // next read comes from the Keychain, not memory
+        XCTAssertEqual(device.value, first)
+        XCTAssertEqual(DeviceID(service: service, defaults: defaults).value, first, "a relaunch keeps it")
+
+        // A reinstall wipes UserDefaults (the install marker) but not the Keychain.
+        defaults.removePersistentDomain(forName: service)
+        let reinstalled = try XCTUnwrap(DeviceID(service: service, defaults: defaults).value)
+        XCTAssertNotEqual(reinstalled, first)
+        XCTAssertEqual(DeviceID(service: service, defaults: defaults).value, reinstalled)
     }
 }
 
@@ -176,14 +245,24 @@ final class ReportsStoreTests: XCTestCase {
     let server = FakeServer()
     var delays: [TimeInterval] = []
     var clock = fixtureNow
-    lazy var store = ReportsStore(
-        client: server.client,
-        now: { [unowned self] in clock },
-        sleep: { [unowned self] seconds in
-            delays.append(seconds)
-            try Task.checkCancellation()
-        }
-    )
+    let defaults = UserDefaults(suiteName: "ReportsStoreTests")!
+    lazy var store = makeStore()
+
+    func makeStore() -> ReportsStore {
+        ReportsStore(
+            client: server.client,
+            now: { [unowned self] in clock },
+            sleep: { [unowned self] seconds in
+                delays.append(seconds)
+                try Task.checkCancellation()
+            },
+            defaults: defaults
+        )
+    }
+
+    override func setUp() {
+        defaults.removePersistentDomain(forName: "ReportsStoreTests")
+    }
 
     let areaA = BBox(minLat: 3.1, minLng: 101.6, maxLat: 3.2, maxLng: 101.8)
     let areaB = BBox(minLat: 3.0, minLng: 101.5, maxLat: 3.1, maxLng: 101.6)
@@ -194,16 +273,92 @@ final class ReportsStoreTests: XCTestCase {
         }
     }
 
+    /// A sleep that records what was asked and returns only when released.
+    @MainActor
+    final class Gate {
+        var delays: [TimeInterval] = []
+        var waiting: [CheckedContinuation<Void, Never>] = []
+
+        func sleep(_ seconds: TimeInterval) async throws {
+            delays.append(seconds)
+            try Task.checkCancellation()
+            await withCheckedContinuation { waiting.append($0) }
+            try Task.checkCancellation()
+        }
+
+        func release() {
+            waiting.forEach { $0.resume() }
+            waiting = []
+        }
+    }
+
     func testDebouncesRegionChanges() async throws {
+        let gate = Gate()
+        let store = ReportsStore(client: server.client, now: { fixtureNow }, sleep: { try await gate.sleep($0) },
+                                 defaults: defaults)
         server.responses = [(200, "[\(reportJSON("b", lat: 3.05, lng: 101.55))]")]
         store.setRegion(BBox(minLat: 0, minLng: 0, maxLat: 1, maxLng: 1))
         store.setRegion(areaA)
         store.setRegion(areaB)
+        while gate.waiting.isEmpty {
+            await Task.yield()
+        }
+        XCTAssertEqual(gate.waiting.count, 1, "earlier moves were cancelled")
+        XCTAssertTrue(gate.delays.allSatisfy { $0 == ReportsStore.debounce })
+        XCTAssertEqual(ReportsStore.debounce, 0.5)
+        XCTAssertTrue(server.requests.isEmpty, "nothing is fetched before the map rests")
+        gate.release()
         await store.work?.value
         XCTAssertEqual(server.requests.count, 1)
         XCTAssertTrue(try XCTUnwrap(server.requests[0].url?.query?.contains("minLat=3.0&minLng=101.5")))
-        XCTAssertTrue(delays.allSatisfy { $0 == 0.5 })
         XCTAssertEqual(store.reports.map(\.id), ["b"])
+    }
+
+    func testListOlderThanAVoteIsRefetched() async throws {
+        server.responses = [(200, "[\(reportJSON("a"))]")]
+        store.setRegion(areaA)
+        await store.work?.value
+
+        store.setRegion(areaA)
+        let refresh = store.work
+        await waitForPending() // a list started before the vote
+        server.responses = [(200, reportJSON("a", upvotes: 1))]
+        try await store.vote("a", stillThere: true)
+        XCTAssertEqual(store.reports.first?.upvotes, 1)
+
+        server.responses = [(200, "[\(reportJSON("a", upvotes: 1))]")]
+        server.resume(200, "[\(reportJSON("a", upvotes: 0))]") // stale copy
+        await refresh?.value
+        await store.work?.value
+        XCTAssertEqual(store.reports.first?.upvotes, 1)
+        XCTAssertEqual(server.requests.count, 4, "list, list (stale), vote, list again")
+    }
+
+    func testOwnReportIDsSurviveARelaunchUntilExpiry() async throws {
+        server.responses = [(201, reportJSON("mine", expires: "2026-10-22T11:00:00Z"))]
+        try await store.report(.police, at: CLLocationCoordinate2D(latitude: 3.15, longitude: 101.71))
+        XCTAssertEqual(makeStore().mine, ["mine"])
+        clock = ISO8601DateFormatter().date(from: "2026-10-22T11:00:01Z")!
+        XCTAssertEqual(makeStore().mine, [])
+    }
+
+    func testTimerStopsWhenStoreIsGone() async throws {
+        var ticks = 0
+        weak var weakStore: ReportsStore?
+        do {
+            let store = ReportsStore(client: server.client, sleep: { _ in
+                ticks += 1
+                try await Task.sleep(for: .milliseconds(5))
+            }, defaults: defaults)
+            store.start()
+            weakStore = store
+        }
+        XCTAssertNil(weakStore)
+        try await Task.sleep(for: .milliseconds(50))
+        let settled = ticks
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(ticks, settled)
+        XCTAssertLessThanOrEqual(ticks, 1)
     }
 
     func testDropsStaleResponseForAnAreaLeftBehind() async {
@@ -327,7 +482,7 @@ final class ReportsStoreTests: XCTestCase {
             ticks += 1
             // One quick tick, then park until stop().
             try await Task.sleep(for: ticks == 1 ? .milliseconds(10) : .seconds(3600))
-        })
+        }, defaults: defaults)
         server.responses = [(200, "[]"), (200, "[\(reportJSON("a"))]")]
         store.setRegion(areaA)
         await store.work?.value

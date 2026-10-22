@@ -64,15 +64,43 @@ final class StillThereTests: XCTestCase {
         XCTAssertNil(StillThere.nextAhead(on: empty, at: progress, reports: [report("x", north: 300)]))
     }
 
+    func testSkipsDraftsAndOwnReports() {
+        let draft = report(Report.draftPrefix + "1", north: 300)
+        let own = report("own", north: 320)
+        let theirs = report("theirs", north: 400)
+        XCTAssertEqual(
+            StillThere.nextAhead(on: route, at: progress, reports: [draft, own, theirs], mine: ["own"])?.id,
+            "theirs"
+        )
+        var trip = StillThere()
+        XCTAssertNil(trip.next(on: route, at: progress, reports: [draft, own], mine: ["own"]))
+        XCTAssertTrue(trip.asked.isEmpty)
+    }
+
+    func testNearTheEndOfTheRoute() {
+        // 900 m along: reach runs past the last vertex, so the search must stop at the last segment.
+        let late = RouteProgress(
+            segment: 9, nextStep: 0, distanceToManeuver: 0,
+            remainingDistance: route.along.last! - 900, remainingDuration: 0, offRouteBy: 0
+        )
+        let reports = [report("last", north: 990), report("past-end", north: 1100)]
+        XCTAssertEqual(StillThere.nextAhead(on: route, at: late, reports: reports)?.id, "last")
+        let beyond = RouteProgress(
+            segment: 50, nextStep: 0, distanceToManeuver: 0,
+            remainingDistance: 0, remainingDuration: 0, offRouteBy: 0
+        )
+        XCTAssertNil(StillThere.nextAhead(on: route, at: beyond, reports: reports))
+    }
+
     func testAsksOncePerReportPerTrip() {
         let reports = [report("a", north: 300), report("b", north: 400)]
         var trip = StillThere()
-        XCTAssertEqual(trip.next(on: route, at: progress, reports: reports)?.id, "a")
-        XCTAssertEqual(trip.next(on: route, at: progress, reports: reports)?.id, "b")
-        XCTAssertNil(trip.next(on: route, at: progress, reports: reports))
+        XCTAssertEqual(trip.next(on: route, at: progress, reports: reports, mine: [])?.id, "a")
+        XCTAssertEqual(trip.next(on: route, at: progress, reports: reports, mine: [])?.id, "b")
+        XCTAssertNil(trip.next(on: route, at: progress, reports: reports, mine: []))
         XCTAssertEqual(trip.asked, ["a", "b"])
 
         var nextTrip = StillThere()
-        XCTAssertEqual(nextTrip.next(on: route, at: progress, reports: reports)?.id, "a")
+        XCTAssertEqual(nextTrip.next(on: route, at: progress, reports: reports, mine: [])?.id, "a")
     }
 }

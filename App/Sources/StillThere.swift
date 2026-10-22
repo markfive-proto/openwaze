@@ -12,24 +12,29 @@ struct StillThere {
     private(set) var asked: Set<String> = []
 
     /// The report to ask about now, if any, marking it asked.
-    mutating func next(on route: Route, at progress: RouteProgress, reports: [Report]) -> Report? {
-        guard let report = Self.nextAhead(on: route, at: progress, reports: reports.filter { !asked.contains($0.id) })
-        else { return nil }
+    mutating func next(on route: Route, at progress: RouteProgress, reports: [Report], mine: Set<String>) -> Report? {
+        let fresh = reports.filter { !asked.contains($0.id) }
+        guard let report = Self.nextAhead(on: route, at: progress, reports: fresh, mine: mine) else { return nil }
         asked.insert(report.id)
         return report
     }
 
     /// The closest report within `ahead` metres further along the route and
     /// within `lateral` metres of it. Reports behind the driver, or only near
-    /// a later pass over the same road, are ignored.
-    static func nextAhead(on route: Route, at progress: RouteProgress, reports: [Report]) -> Report? {
+    /// a later pass over the same road, are ignored, as are drafts and the
+    /// device's own reports (`mine`), which the server won't take votes on.
+    static func nextAhead(on route: Route, at progress: RouteProgress, reports: [Report],
+                          mine: Set<String> = []) -> Report?
+    {
         let along = route.along
         guard along.count >= 2, let total = along.last else { return nil }
         let travelled = total - progress.remainingDistance
         let start = min(max(0, progress.segment), along.count - 2)
         // Last segment that starts within reach.
-        let end = (along.indices.first { along[$0] > travelled + ahead } ?? along.count) - 1
+        let reach = along.indices.first { along[$0] > travelled + ahead } ?? along.count
+        let end = max(start, min(reach - 1, along.count - 2))
         return reports
+            .filter { !$0.isDraft && !mine.contains($0.id) }
             .compactMap { report -> (Report, Double)? in
                 guard let match = Geo.project(report.coordinate, onto: route.coordinates, from: start, to: end),
                       match.distance <= lateral else { return nil }
