@@ -2,8 +2,11 @@ import CoreLocation
 import MapLibre
 import SwiftUI
 
-/// Full-screen MapLibre map that follows the user's location.
+/// Full-screen MapLibre map that follows the user's location until a
+/// destination is picked, then pins and centres on it.
 struct MapView: UIViewRepresentable {
+    var destination: Destination?
+
     static let styleURL = URL(string: "https://tiles.openfreemap.org/styles/liberty")!
 
     func makeCoordinator() -> Coordinator {
@@ -18,13 +21,34 @@ struct MapView: UIViewRepresentable {
         return map
     }
 
-    func updateUIView(_: MLNMapView, context _: Context) {}
+    func updateUIView(_ map: MLNMapView, context: Context) {
+        let coordinator = context.coordinator
+        guard destination != coordinator.shown else { return }
+        coordinator.shown = destination
+        map.removeAnnotations(map.annotations ?? [])
+        // Keep the OSM attribution and logo visible above the destination card.
+        let bottom = 8 + (destination == nil ? 0 : DestinationCard.height)
+        map.logoViewMargins = CGPoint(x: 8, y: bottom)
+        map.attributionButtonMargins = CGPoint(x: 8, y: bottom)
+        guard let destination else {
+            map.userTrackingMode = .follow
+            return
+        }
+        let pin = MLNPointAnnotation()
+        pin.coordinate = destination.coordinate
+        pin.title = destination.name
+        map.addAnnotation(pin)
+        map.userTrackingMode = .none
+        map.setCenter(destination.coordinate, zoomLevel: 16, animated: true)
+    }
 
     final class Coordinator: NSObject, MLNMapViewDelegate {
+        var shown: Destination?
         private var zoomedToFirstFix = false
 
         func mapView(_ mapView: MLNMapView, didUpdate userLocation: MLNUserLocation?) {
             guard !zoomedToFirstFix,
+                  shown == nil, // don't yank the map off a picked destination
                   let location = userLocation?.location,
                   Zoom.isUsableFirstFix(location) else { return }
             zoomedToFirstFix = true
@@ -46,6 +70,11 @@ final class LocationAuthorization: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         manager.delegate = self
+    }
+
+    /// Last known fix, used to bias search results.
+    var coordinate: CLLocationCoordinate2D? {
+        manager.location?.coordinate
     }
 
     func request() {
