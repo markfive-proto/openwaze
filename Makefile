@@ -13,6 +13,7 @@ SPEED ?= 12
 .PHONY: bootstrap project test lint sim-klcc sim-drive sim-stop
 
 bootstrap:
+	git config core.hooksPath scripts/githooks
 	brew bundle
 	$(MAKE) project
 
