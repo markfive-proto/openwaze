@@ -1,0 +1,23 @@
+# Paths that need a human review. Enforced once main's branch rule has
+# "Require review from Code Owners" on. See docs/pr-gate.md.
+
+# Location, probe and share code: privacy-sensitive.
+/App/Sources/**/Location*  @markfive-proto
+/App/Sources/**/Probe*     @markfive-proto
+/App/Sources/**/Share*     @markfive-proto
+
+# Server: report storage and data retention.
+/server/src/               @markfive-proto
+
+# The gate itself, and agent/editor config a PR could use to run code
+# (docs/security/known-vulns.md, actions 7 and 10).
+/.github/                  @markfive-proto
+/scripts/                  @markfive-proto
+/Makefile                  @markfive-proto
+/.claude/                  @markfive-proto
+/.mcp.json                 @markfive-proto
+/.vscode/                  @markfive-proto
+
+# Security and privacy docs.
+/docs/security/            @markfive-proto
+/docs/privacy.md           @markfive-proto

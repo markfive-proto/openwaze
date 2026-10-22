@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Fast checks before a push: lint if iOS files changed, server unit tests if
+# server/ changed. CI runs the full suite. Enabled by `make bootstrap`
+# (git config core.hooksPath scripts/githooks). Skip once with --no-verify.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+base="$(git merge-base origin/main HEAD 2>/dev/null || true)"
+if [ -n "$base" ]; then
+  changed="$(git diff --name-only "$base" HEAD)"
+else
+  changed="App/
+server/"
+fi
+has() { printf '%s\n' "$changed" | grep -qE "$1"; }
+
+if has '^(App/|\.swiftlint\.yml$)'; then
+  echo "pre-push: make lint"
+  make lint
+fi
+if has '^server/'; then
+  [ -d server/node_modules ] || { echo "pre-push: run 'npm ci' in server/ first." >&2; exit 1; }
+  echo "pre-push: server tests"
+  npm --prefix server test
+fi

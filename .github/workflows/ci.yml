@@ -19,6 +19,7 @@ jobs:
     outputs:
       ios: ${{ steps.diff.outputs.ios }}
       server: ${{ steps.diff.outputs.server }}
+      server_tests: ${{ steps.diff.outputs.server_tests }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,8 +39,11 @@ jobs:
           fi
           match() { printf '%s\n' "$files" | grep -qE "$1" && echo true || echo false; }
           shared='^\.github/workflows/ci\.yml$'
-          echo "ios=$(match "^(App/|project\.yml$|Makefile$|Brewfile$|\.swiftlint\.yml$)|$shared")" >> "$GITHUB_OUTPUT"
-          echo "server=$(match "^server/|$shared")" >> "$GITHUB_OUTPUT"
+          {
+            echo "ios=$(match "^(App/|project\.yml$|Makefile$|Brewfile$|\.swiftlint\.yml$)|$shared")"
+            echo "server=$(match "^server/|$shared")"
+            echo "server_tests=$(match '^server/src/.*\.test\.ts$|^scripts/check-test-bites\.sh$')"
+          } >> "$GITHUB_OUTPUT"
 
   ios:
     needs: changes
@@ -94,9 +98,33 @@ jobs:
 
       - run: npm ci && npm test
 
+  # Changed server tests must fail on the base branch's source and pass on HEAD.
+  test-bites:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.server_tests == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+        working-directory: server
+      - env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: scripts/check-test-bites.sh --base "$BASE"
+
   # The single required check: green when every relevant job passed or was skipped.
   ci-ok:
-    needs: [changes, ios, server]
+    needs: [changes, ios, server, test-bites]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -105,9 +133,10 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           IOS: ${{ needs.ios.result }}
           SERVER: ${{ needs.server.result }}
+          BITES: ${{ needs.test-bites.result }}
         run: |
-          echo "changes=$CHANGES ios=$IOS server=$SERVER"
+          echo "changes=$CHANGES ios=$IOS server=$SERVER test-bites=$BITES"
           [ "$CHANGES" = success ] || exit 1
-          for r in "$IOS" "$SERVER"; do
+          for r in "$IOS" "$SERVER" "$BITES"; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done

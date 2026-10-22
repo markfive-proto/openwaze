@@ -8,6 +8,7 @@ SIM_NAME = $(shell echo "$(SIM_LINE)" | sed -E "s/^ *//; s/ *[(].*[)] *$$//")
 .PHONY: bootstrap project test lint
 
 bootstrap:
+	git config core.hooksPath scripts/githooks
 	brew bundle
 	$(MAKE) project
 
