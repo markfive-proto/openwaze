@@ -166,11 +166,54 @@ final class SpeedLimitTests: XCTestCase {
         XCTAssertEqual(Overpass.backoff(after: 10, status: 429), 900)
     }
 
-    private func fix(speed: Double) -> CLLocation {
+    @MainActor
+    func testSpeedometerLooksUpLimitAndChimesOnce() async {
+        // A north-south 50 km/h road through KLCC.
+        let body = Data("""
+        {"elements": [{"type": "way", "tags": {"maxspeed": "50"},
+          "geometry": [{"lat": 3.155, "lon": 101.7116}, {"lat": 3.159, "lon": 101.7116}]}]}
+        """.utf8)
+        var calls = 0
+        let store = SpeedLimitStore(directory: nil, fetch: { request in
+            calls += 1
+            return (body, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        })
+        var chimes = 0
+        let meter = Speedometer(store: store) { chimes += 1 }
+        meter.update(fix(speed: 20)) // 72 km/h heading north
+        await meter.pending?.value
+        XCTAssertEqual(meter.limit, 50)
+        XCTAssertTrue(meter.isOver)
+        XCTAssertEqual(chimes, 1)
+        meter.update(fix(speed: 20))
+        await meter.pending?.value
+        XCTAssertEqual(chimes, 1) // still over: no repeat
+        XCTAssertEqual(calls, 1) // tile cached
+        // A vague fix is not used for the limit, and no lookup starts.
+        let before = meter.pending
+        meter.update(fix(speed: 20, accuracy: 51))
+        XCTAssertTrue(meter.pending == before)
+        meter.update(fix(speed: 20, age: 11))
+        XCTAssertTrue(meter.pending == before)
+        XCTAssertEqual(meter.limit, 50)
+    }
+
+    func testMatchBoundaries() {
+        let road = [SpeedWay(maxspeed: "60", points: [.init(lat: 0, lon: 0), .init(lat: 0, lon: 0.01)])]
+        let metre = 1 / 111_195.0 // degrees of latitude per metre
+        XCTAssertNotNil(SpeedMatch.nearest(road, to: .init(latitude: 24.9 * metre, longitude: 0.005), course: nil))
+        XCTAssertNil(SpeedMatch.nearest(road, to: .init(latitude: 25.1 * metre, longitude: 0.005), course: nil))
+        let point = CLLocationCoordinate2D(latitude: 0, longitude: 0.005)
+        XCTAssertNotNil(SpeedMatch.nearest(road, to: point, course: 90 + 44.9))
+        XCTAssertNil(SpeedMatch.nearest(road, to: point, course: 90 + 45.1))
+        XCTAssertNil(SpeedMatch.nearest([], to: point, course: nil))
+    }
+
+    private func fix(speed: Double, accuracy: Double = 5, age: TimeInterval = 0) -> CLLocation {
         CLLocation(
             coordinate: .init(latitude: 3.1579, longitude: 101.7116), altitude: 0,
-            horizontalAccuracy: 5, verticalAccuracy: 5, course: 0, courseAccuracy: 5,
-            speed: speed, speedAccuracy: 1, timestamp: Date()
+            horizontalAccuracy: accuracy, verticalAccuracy: 5, course: 0, courseAccuracy: 5,
+            speed: speed, speedAccuracy: 1, timestamp: Date(timeIntervalSinceNow: -age)
         )
     }
 }

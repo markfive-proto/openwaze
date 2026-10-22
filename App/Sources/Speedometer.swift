@@ -138,6 +138,8 @@ final class SpeedLimitStore {
 final class Speedometer {
     /// Weight of a new sample; the rest is the previous value.
     static let smoothing = 0.6
+    /// Older fixes are not used to look up the limit.
+    static let maxFixAge: TimeInterval = 10
 
     /// km/h, smoothed. Nil until a valid fix.
     private(set) var speed: Double?
@@ -148,6 +150,10 @@ final class Speedometer {
     @ObservationIgnored private let store: SpeedLimitStore
     @ObservationIgnored private let chime: () -> Void
     @ObservationIgnored private var feed: SpeedFeed?
+    /// Bumped per limit lookup; only the latest one may set `limit`.
+    @ObservationIgnored private var lookup = 0
+    /// The lookup tests await it.
+    @ObservationIgnored private(set) var pending: Task<Void, Never>?
 
     init(store: SpeedLimitStore = .shared, chime: @escaping () -> Void = Speedometer.playChime) {
         self.store = store
@@ -176,12 +182,19 @@ final class Speedometer {
         let kmh = location.speed * 3.6
         speed = speed.map { $0 + Self.smoothing * (kmh - $0) } ?? kmh
         check()
+        // A vague or old fix could match a parallel road: keep the last limit.
+        guard (0 ... Guidance.maxFixAccuracy).contains(location.horizontalAccuracy),
+              -location.timestamp.timeIntervalSinceNow <= Self.maxFixAge else { return }
         let course = location.course >= 0 && location.speed >= SpeedMatch.minSpeedForCourse ? location.course : nil
-        Task { [weak self, store] in
-            guard let ways = await store.ways(for: SpeedTile(location.coordinate)) else { return }
-            self?.limit = SpeedMatch.nearest(ways, to: location.coordinate, course: course)
+        lookup += 1
+        let lookup = lookup
+        pending = Task { [weak self, store] in
+            let ways = await store.ways(for: SpeedTile(location.coordinate))
+            // A slow tile fetch must not overwrite the limit for a newer fix.
+            guard let self, let ways, lookup == self.lookup else { return }
+            limit = SpeedMatch.nearest(ways, to: location.coordinate, course: course)
                 .flatMap { Maxspeed.kmh($0.maxspeed) }
-            self?.check()
+            check()
         }
     }
 
