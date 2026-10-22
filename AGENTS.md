@@ -27,7 +27,7 @@ Server (needs Node 22.18+, no Xcode):
 - `App/Sources/`: SwiftUI app. `App/Tests/`: unit tests. `App/TestData/`: GPX drives.
 - `project.yml`: XcodeGen spec. The Xcode project is generated from it.
 - `server/`: crowd-report API (TypeScript on Node, Hono, `node:sqlite`).
-- `docs/`: `security/known-vulns.md`, `pr-gate.md`. `privacy.md` is planned (#31).
+- `docs/`: `security/known-vulns.md`, `pr-gate.md`. `privacy.md` is the PDPA review (#31).
 - `.github/workflows/ci.yml`: CI. `Makefile`: all dev commands.
 
 ## Delivery gate
@@ -66,14 +66,15 @@ Run `make lint` and `make test` (iOS) or `npm test` (server) before you push.
 - Add a dependency without pinning it (SwiftPM `exactVersion`, exact npm version plus
   lockfile, Actions pinned by commit SHA). Say why in the PR.
 - Send a user's precise location to a third party. Round or drop it first. Keep stored
-  reports free of device or person identifiers.
+  reports free of device or person identifiers. See [docs/privacy.md](docs/privacy.md).
 - Change `.github/`, `scripts/`, `Makefile`, `.claude/` or other agent config in a PR that is
   about something else. These need owner review.
 
 ## Security and privacy
 
 - Known vulnerabilities and supply-chain rules: [docs/security/known-vulns.md](docs/security/known-vulns.md).
-- Privacy policy and PDPA review: `docs/privacy.md` (future, #31).
+- Privacy policy and PDPA review: [docs/privacy.md](docs/privacy.md) (#31). Read it before
+  touching anything that collects, stores or sends location or ids.
 
 ## Style
 
