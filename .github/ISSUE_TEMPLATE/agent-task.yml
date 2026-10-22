@@ -1,0 +1,40 @@
+name: Agent task
+description: A scoped task that a person or AI agent can do in one PR.
+labels: [agent-ready]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: One or two sentences. One task, one PR.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: Files or areas to touch, and what is out of scope.
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Acceptance criteria
+      description: A checklist that can be verified.
+      placeholder: |
+        - [ ] ...
+        - [ ] Tests added
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: The single observable result that means this is finished.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Links to related issues, docs or code. See AGENTS.md for the rules.

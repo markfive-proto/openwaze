@@ -5,6 +5,18 @@ Your reports stay open data (ODbL), not locked in someone else's map.
 
 Status: bootstrapping. See the sprint issues to contribute.
 
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). The rules for people and AI agents are in
+[AGENTS.md](AGENTS.md). Pick an open issue labelled `agent-ready`. Code is MIT licensed
+([LICENSE](LICENSE)); please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Map data
+
+The app uses OpenStreetMap data. © OpenStreetMap contributors, available under the
+[ODbL](https://www.openstreetmap.org/copyright). If the map is wrong, fix it in
+[OpenStreetMap](https://www.openstreetmap.org) so everyone benefits.
+
 ## Develop
 
 Needs Xcode 26+ and Homebrew.
