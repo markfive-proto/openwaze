@@ -42,7 +42,7 @@ final class NavigatorTests: XCTestCase {
 
     func makeNavigator() -> Navigator {
         Navigator(
-            fetchRoute: router.fetch,
+            fetchRoutes: { [unowned self] in try await [router.fetch($0, $1)] },
             speech: speech,
             now: { [unowned self] in clock },
             sleep: { [unowned self] in slept.append($0) },

@@ -17,7 +17,7 @@ final class HomeModelTests: XCTestCase {
 
     func makeModel() -> HomeModel {
         let route = NavigatorTests.lRoute()
-        let navigator = Navigator(fetchRoute: { _, _ in route }, speech: NavigatorTests.FakeSpeech(), feed: nil)
+        let navigator = Navigator(fetchRoutes: { _, _ in [route] }, speech: NavigatorTests.FakeSpeech(), feed: nil)
         return HomeModel(navigator: navigator, context: context, origin: { NavigatorTests.origin })
     }
 
