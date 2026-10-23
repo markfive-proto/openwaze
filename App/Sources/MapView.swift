@@ -34,6 +34,8 @@ struct MapView: UIViewRepresentable {
     }
 
     static let styleURL = URL(string: "https://tiles.openfreemap.org/styles/liberty")!
+    /// Camera tilt while driving; the car puck lies flat on the tilted road.
+    static let drivingPitch: CGFloat = 50
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -43,6 +45,7 @@ struct MapView: UIViewRepresentable {
         let map = MLNMapView(frame: .zero, styleURL: Self.styleURL)
         map.delegate = context.coordinator
         map.showsUserLocation = true
+        map.showsUserHeadingIndicator = true // compass heading reaches the puck while browsing
         map.userTrackingMode = .follow
         return map
     }
@@ -79,12 +82,14 @@ struct MapView: UIViewRepresentable {
             guard following, !previous.navigating || !previous.following else { return }
             coordinator.movingCamera = true // our own camera moves are not the user panning
             map.setZoomLevel(17, animated: false)
+            Self.pitch(map, to: Self.drivingPitch, animated: false)
             map.setUserTrackingMode(.followWithCourse, animated: animated, completionHandler: nil)
             coordinator.movingCamera = false
         } else if let route {
             guard route.id != previous.route || previous.navigating else { return }
             var line = route.coordinates
             map.userTrackingMode = .none
+            Self.pitch(map, to: 0, animated: false)
             map.direction = 0
             map.setVisibleCoordinates(
                 &line, count: UInt(line.count),
@@ -98,6 +103,12 @@ struct MapView: UIViewRepresentable {
         } else {
             map.userTrackingMode = .follow
         }
+    }
+
+    static func pitch(_ map: MLNMapView, to degrees: CGFloat, animated: Bool) {
+        let camera = map.camera
+        camera.pitch = degrees
+        map.setCamera(camera, animated: animated)
     }
 
     /// Replaces the destination pin, leaving report icons alone.
