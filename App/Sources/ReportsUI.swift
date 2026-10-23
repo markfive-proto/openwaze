@@ -120,6 +120,9 @@ extension MapView.Coordinator {
     }
 
     func mapView(_ mapView: MLNMapView, viewFor annotation: MLNAnnotation) -> MLNAnnotationView? {
+        if annotation is MLNUserLocation {
+            return CarPuckView(reuseIdentifier: "puck")
+        }
         guard let annotation = annotation as? ReportAnnotation else { return nil }
         let type = annotation.report.type
         let id = "report.\(type.rawValue)"
