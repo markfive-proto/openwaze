@@ -57,6 +57,7 @@ final class Speech: NSObject, Speaking, AVSpeechSynthesizerDelegate {
 
     private func enqueue(_ text: String, key: PromptKey) {
         let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = Voices.current()
         queued.append(Queued(utterance: utterance, text: text, key: key))
         synthesizer.speak(utterance)
     }
