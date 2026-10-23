@@ -80,7 +80,7 @@ private struct TileButtonStyle: ButtonStyle {
     }
 }
 
-/// Settings stub; real options (voice, units, avoid tolls, dark map) are #22.
+/// Settings stub; voice is done, the rest (units, avoid tolls, dark map) is #22.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -92,7 +92,11 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    soon("Voice guidance", icon: "speaker.wave.2.fill")
+                    NavigationLink {
+                        VoicePickerView()
+                    } label: {
+                        Label(String(localized: "Voice"), systemImage: "speaker.wave.2.fill")
+                    }
                     soon("Units", icon: "ruler.fill")
                     soon("Avoid tolls", icon: "dollarsign.circle.fill")
                     soon("Dark map", icon: "moon.fill")
