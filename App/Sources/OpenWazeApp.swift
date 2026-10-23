@@ -1,3 +1,4 @@
+import AudioToolbox
 import SwiftData
 import SwiftUI
 
@@ -206,7 +207,7 @@ struct HomeView: View {
 
     private var controls: some View {
         HStack(alignment: .bottom) {
-            SpeedBubble()
+            SpeedBubble(speed: navigator.speed, limit: navigator.speedLimit)
             Spacer()
             // Stacked, or side by side at accessibility sizes to leave room for the map.
             let buttons = typeSize.isAccessibilitySize
@@ -256,27 +257,64 @@ struct HomeView: View {
     }
 }
 
-/// Current speed; a placeholder until speed and limits land (#15).
+/// Current speed, the road's limit, and red plus a chime when over the
+/// limit by the margin set in Settings.
 struct SpeedBubble: View {
+    static let marginKey = "speedWarningMargin"
+    static let marginChoices = [0, 5, 10, 15, 20] // in the locale's unit
+
+    var speed: Double?
+    var limit: Double?
+    @AppStorage(marginKey) private var margin = 5
     @Scaled private var size: CGFloat = Theme.fab
 
-    private var unit: String {
-        Locale.current.measurementSystem == .metric ? String(localized: "km/h") : String(localized: "mph")
+    private var over: Bool {
+        Speedometer.isOver(speed: speed, limit: limit, margin: Double(margin) / Speedometer.unitFactor())
     }
 
     var body: some View {
-        VStack(spacing: -2) {
-            Text(verbatim: "–").font(.title2.weight(.heavy)).monospacedDigit()
-            Text(unit).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+        HStack(alignment: .bottom, spacing: Theme.Space.small) {
+            VStack(spacing: -2) {
+                Text(verbatim: Speedometer.display(speed) ?? "–").font(.title2.weight(.heavy)).monospacedDigit()
+                Text(Speedometer.unitName()).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+            }
+            .frame(width: size, height: size)
+            .foregroundStyle(over ? Color.white : Color.primary)
+            .background(over ? Color.red : Theme.surface, in: Circle())
+            .overlay(Circle().strokeBorder(over ? Color.red : Color.primary.opacity(0.85), lineWidth: 3))
+            if let limit = Speedometer.display(limit) {
+                Text(verbatim: limit).font(.headline.weight(.heavy)).monospacedDigit()
+                    .frame(width: size * 0.7, height: size * 0.7)
+                    .background(Color.white, in: Circle())
+                    .overlay(Circle().strokeBorder(Color.red, lineWidth: 4))
+                    .foregroundStyle(Color.black)
+                    .transition(.scale.combined(with: .opacity))
+            }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.6)
-        .frame(width: size, height: size)
-        .background(Theme.surface, in: Circle())
-        .overlay(Circle().strokeBorder(Color.primary.opacity(0.85), lineWidth: 3))
         .shadow(color: Theme.shadow, radius: 10, y: 4)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge) // glyph inside a fixed disc
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Speed unavailable"))
+        .accessibilityLabel(Text(label))
+        .animation(.default, value: over)
+        .animation(.default, value: limit)
+        .sensoryFeedback(.warning, trigger: over) { _, over in over }
+        .onChange(of: over) { _, over in
+            if over {
+                AudioServicesPlaySystemSound(1057) // short "tink"
+            }
+        }
+    }
+
+    private var label: String {
+        guard let speed = Speedometer.display(speed) else { return String(localized: "Speed unavailable") }
+        let unit = Speedometer.unitName()
+        if let limit = Speedometer.display(limit) {
+            return over
+                ? String(localized: "\(speed) \(unit), over the \(limit) limit")
+                : String(localized: "\(speed) \(unit), limit \(limit)")
+        }
+        return "\(speed) \(unit)"
     }
 }

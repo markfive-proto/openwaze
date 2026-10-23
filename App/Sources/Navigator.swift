@@ -12,17 +12,26 @@ final class Navigator {
 
     typealias FetchRoute = (CLLocationCoordinate2D, CLLocationCoordinate2D) async throws -> Route
     typealias Sleep = (TimeInterval) async throws -> Void
+    typealias FetchLimits = ([CLLocationCoordinate2D]) async throws -> SpeedLimits
 
     private(set) var phase = Phase.idle
     private(set) var route: Route?
     private(set) var progress: RouteProgress?
     private(set) var destination: Destination?
+    /// Latest GPS speed in m/s while navigating; nil when unknown.
+    private(set) var speed: Double?
+    /// Limit of the road under the driver in m/s; nil when unknown.
+    private(set) var speedLimit: Double?
 
     @ObservationIgnored private let fetchRoute: FetchRoute
     @ObservationIgnored private let speech: Speaking
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let sleep: Sleep
     @ObservationIgnored private let feed: LocationFeed?
+    @ObservationIgnored private let fetchLimits: FetchLimits
+    @ObservationIgnored private var limits = SpeedLimits()
+    /// The limits fetch for the current route; tests await it.
+    @ObservationIgnored private(set) var limitsWork: Task<Void, Never>?
 
     /// Bumped when a trip starts or ends: a response for an older trip is dropped.
     @ObservationIgnored private var trip = 0
@@ -41,9 +50,11 @@ final class Navigator {
         speech: Speaking = Speech(),
         now: @escaping () -> Date = Date.init,
         sleep: @escaping Sleep = { try await Task.sleep(for: .seconds($0)) },
-        feed: LocationFeed? = LocationFeed()
+        feed: LocationFeed? = LocationFeed(),
+        fetchLimits: @escaping FetchLimits = { try await Overpass.fetch(along: $0) }
     ) {
         self.fetchRoute = fetchRoute
+        self.fetchLimits = fetchLimits
         self.speech = speech
         self.now = now
         self.sleep = sleep
@@ -96,6 +107,10 @@ final class Navigator {
         feed?.stop()
         work?.cancel()
         work = nil
+        limitsWork?.cancel()
+        limits = SpeedLimits()
+        speed = nil
+        speedLimit = nil
         rerouting = false
         lastFix = nil
         speech.stop()
@@ -106,7 +121,10 @@ final class Navigator {
     }
 
     func update(_ location: CLLocation) {
-        guard phase == .navigating, let route, location.horizontalAccuracy >= 0,
+        guard phase == .navigating, location.horizontalAccuracy >= 0 else { return }
+        speed = location.speed >= 0 ? location.speed : nil
+        speedLimit = limits.limit(near: location.coordinate)
+        guard let route,
               let current = Guidance.progress(on: route, at: location.coordinate, from: progress?.segment ?? 0)
         else { return }
         lastFix = location
@@ -143,6 +161,8 @@ final class Navigator {
         phase = .arrived
         feed?.stop()
         work?.cancel()
+        speed = nil
+        speedLimit = nil
         if let last = route.steps.last {
             speech.say(Instruction.text(for: last), key: PromptKey(route: routeVersion, step: route.steps.count))
         }
@@ -200,6 +220,29 @@ final class Navigator {
         spoken = []
         greeted = false
         offRoute.reset()
+        loadLimits(for: found, version: routeVersion)
+    }
+
+    /// Loads the road limits along a route, retrying twice with backoff (the
+    /// public Overpass server asks for that when busy). A result for a
+    /// replaced route is dropped.
+    private func loadLimits(for route: Route, version: Int) {
+        limits = SpeedLimits()
+        speedLimit = nil
+        limitsWork?.cancel()
+        let trip = trip
+        limitsWork = Task { [weak self] in
+            for attempt in 1 ... 3 {
+                guard let self, trip == self.trip, version == routeVersion else { return }
+                if let found = try? await fetchLimits(route.coordinates) {
+                    guard trip == self.trip, version == routeVersion else { return } // no limits beats wrong ones
+                    limits = found
+                    speedLimit = lastFix.map { found.limit(near: $0.coordinate) } ?? nil
+                    return
+                }
+                try? await sleep(Guidance.retryDelay(after: attempt))
+            }
+        }
     }
 
     /// Rate limits and server or network failures, as opposed to "no road there".

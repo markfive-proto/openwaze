@@ -83,6 +83,7 @@ private struct TileButtonStyle: ButtonStyle {
 /// Settings stub; real options (voice, units, avoid tolls, dark map) are #22.
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(SpeedBubble.marginKey) private var speedMargin = 5
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
@@ -96,6 +97,13 @@ struct SettingsView: View {
                     soon("Units", icon: "ruler.fill")
                     soon("Avoid tolls", icon: "dollarsign.circle.fill")
                     soon("Dark map", icon: "moon.fill")
+                    Picker(selection: $speedMargin) {
+                        ForEach(SpeedBubble.marginChoices, id: \.self) { choice in
+                            Text(verbatim: "+\(choice) \(Speedometer.unitName())").tag(choice)
+                        }
+                    } label: {
+                        Label("Speed warning", systemImage: "gauge.with.needle.fill")
+                    }
                 } header: {
                     Text("Driving")
                 }
