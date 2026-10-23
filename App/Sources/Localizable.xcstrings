@@ -1,6 +1,12 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "%@ %@, limit %@": {
+      "comment": "Speed bubble accessibility: speed, unit, limit"
+    },
+    "%@ %@, over the %@ limit": {
+      "comment": "Speed bubble accessibility: speed, unit, limit"
+    },
     "%@ onto %@": {
       "comment": "Maneuver then road name, e.g. Turn left onto Jalan Ampang"
     },
@@ -104,6 +110,9 @@
     "Something went wrong": {},
     "Source code": {},
     "Speed unavailable": {},
+    "Speed warning": {
+      "comment": "Settings: how far over the limit before the warning"
+    },
     "Start": {},
     "Start driving": {},
     "Start on %@": {

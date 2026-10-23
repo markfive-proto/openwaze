@@ -39,6 +39,10 @@ final class NavigatorTests: XCTestCase {
     let router = FakeRouter()
     var clock = Date(timeIntervalSince1970: 0)
     var slept: [TimeInterval] = []
+    /// Limits along the route; one entry per fetch, pending ones wait for a resume.
+    var limitsResults: [Result<SpeedLimits, Error>] = []
+    var limitsPending: [CheckedContinuation<SpeedLimits, Error>] = []
+    var limitsRequests: [[CLLocationCoordinate2D]] = []
 
     func makeNavigator() -> Navigator {
         Navigator(
@@ -46,9 +50,22 @@ final class NavigatorTests: XCTestCase {
             speech: speech,
             now: { [unowned self] in clock },
             sleep: { [unowned self] in slept.append($0) },
-            feed: nil
+            feed: nil,
+            fetchLimits: { [unowned self] line in
+                limitsRequests.append(line)
+                if !limitsResults.isEmpty {
+                    return try limitsResults.removeFirst().get()
+                }
+                return try await withCheckedThrowingContinuation { limitsPending.append($0) }
+            }
         )
     }
+
+    /// 50 km/h along the first leg (north), 90 km/h along the second (east).
+    static let limits = SpeedLimits(ways: [
+        SpeedLimits.Way(limit: 50 / 3.6, line: [origin, corner]),
+        SpeedLimits.Way(limit: 90 / 3.6, line: [corner, end]),
+    ])
 
     /// ~1 km north, right turn, ~1 km east; optionally a second turn `shortStep` metres after the first.
     nonisolated static func lRoute(shortStep: Double? = nil) -> Route {
@@ -181,5 +198,52 @@ final class NavigatorTests: XCTestCase {
         navigator.update(Self.fix(north: 960))
         XCTAssertEqual(speech.said.map(\.text), ["Turn right", "Turn right"])
         XCTAssertLessThan(speech.said[0].key, speech.said[1].key) // the old prompt counts as stale
+    }
+
+    func testSpeedAndLimitFollowTheFixes() async {
+        limitsResults = [.failure(RouterError.http(status: 502)), .success(Self.limits)]
+        let navigator = await navigating()
+        await navigator.limitsWork?.value
+        XCTAssertEqual(limitsRequests.count, 2) // a busy server is retried after a pause
+        XCTAssertEqual(slept, [5])
+        XCTAssertNil(navigator.speed) // no fix yet
+        navigator.update(Self.fix(north: 300))
+        XCTAssertEqual(navigator.speed, 10)
+        XCTAssertEqual(navigator.speedLimit ?? 0, 50 / 3.6, accuracy: 0.001)
+        navigator.update(Self.fix(north: 1000, east: 500))
+        XCTAssertEqual(navigator.speedLimit ?? 0, 90 / 3.6, accuracy: 0.001)
+        let unknown = CLLocation(coordinate: Self.point(north: 1000, east: 600), altitude: 0, horizontalAccuracy: 5,
+                                 verticalAccuracy: -1, course: 0, speed: -1, timestamp: Date())
+        navigator.update(unknown)
+        XCTAssertNil(navigator.speed) // a negative speed means Core Location doesn't know
+        navigator.update(Self.fix(north: 1300, east: 1000)) // off every known road
+        XCTAssertNil(navigator.speedLimit)
+        navigator.end()
+        XCTAssertNil(navigator.speed)
+        XCTAssertNil(navigator.speedLimit)
+    }
+
+    func testLimitsForAReplacedRouteAreDropped() async {
+        let navigator = await navigating()
+        await Task.yield()
+        let detour = Self.lRoute()
+        router.results = [.success(detour)]
+        navigator.update(Self.fix(north: 500, east: 200))
+        await navigator.work?.value
+        clock += 5
+        navigator.update(Self.fix(north: 500, east: 210))
+        await navigator.work?.value
+        XCTAssertEqual(navigator.route?.id, detour.id)
+        for _ in 0 ..< 1000 where limitsPending.count < 2 {
+            await Task.yield()
+        }
+        XCTAssertEqual(limitsPending.count, 2) // the first route's fetch and the detour's
+        limitsPending[0].resume(returning: Self.limits) // the slow answer for the old route
+        await Task.yield()
+        navigator.update(Self.fix(north: 300))
+        XCTAssertNil(navigator.speedLimit)
+        limitsPending[1].resume(returning: Self.limits)
+        await navigator.limitsWork?.value
+        XCTAssertEqual(navigator.speedLimit ?? 0, 50 / 3.6, accuracy: 0.001) // applied to the last fix at once
     }
 }
