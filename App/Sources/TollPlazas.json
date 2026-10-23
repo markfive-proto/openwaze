@@ -1,0 +1,2834 @@
+{
+ "about": "Malaysian toll plazas: OSM nodes tagged barrier=toll_booth inside Malaysia. Data (c) OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright). `id` is the OSM node id; a plaza with several booth nodes appears once per node. Re-extract with the Overpass query below (overpass-api.de or overpass.kumi.systems) and keep this header. Per-plaza `system` and `rate` fields are for #70.",
+ "query": "[out:json][timeout:180];area[\"ISO3166-1\"=\"MY\"][admin_level=2]->.my;node[\"barrier\"=\"toll_booth\"](area.my);out body;",
+ "extracted": "2026-10-23",
+ "osmBase": "2026-05-31T22:37:44Z",
+ "plazas": [
+  {
+   "id": 32685631,
+   "name": "Plaza Tol Putrajaya",
+   "lat": 2.925185,
+   "lng": 101.612734
+  },
+  {
+   "id": 32685858,
+   "name": "Plaza Tol Putrajaya",
+   "lat": 2.924939,
+   "lng": 101.612811
+  },
+  {
+   "id": 32686379,
+   "name": "Plaza Tol Ebor Selatan",
+   "lat": 3.05713,
+   "lng": 101.558841
+  },
+  {
+   "id": 33138693,
+   "name": "Plaza Tol Batu 9 (B)",
+   "lat": 3.074513,
+   "lng": 101.760436
+  },
+  {
+   "id": 33353639,
+   "name": "Plaza Tol USJ",
+   "lat": 3.025411,
+   "lng": 101.578967
+  },
+  {
+   "id": 33372372,
+   "name": "Plaza Tol Shah Alam",
+   "lat": 3.097679,
+   "lng": 101.545117
+  },
+  {
+   "id": 33375621,
+   "name": "Plaza Tol Bukit Raja",
+   "lat": 3.073316,
+   "lng": 101.475122
+  },
+  {
+   "id": 33376679,
+   "name": "Plaza Tol Bukit Raja",
+   "lat": 3.073597,
+   "lng": 101.474906
+  },
+  {
+   "id": 33580020,
+   "name": "Plaza Tol Sungai Buloh",
+   "lat": 3.201265,
+   "lng": 101.585943
+  },
+  {
+   "id": 33644215,
+   "name": "Plaza Tol Shah Alam",
+   "lat": 3.097812,
+   "lng": 101.545356
+  },
+  {
+   "id": 33703676,
+   "name": "Plaza Tol Simpang Ampat",
+   "lat": 2.447122,
+   "lng": 102.183919
+  },
+  {
+   "id": 33989088,
+   "name": "Plaza Tol USJ",
+   "lat": 3.025636,
+   "lng": 101.579251
+  },
+  {
+   "id": 34423874,
+   "name": "Plaza Tol Sungai Besi",
+   "lat": 3.039296,
+   "lng": 101.705575
+  },
+  {
+   "id": 34423899,
+   "name": "Plaza Tol Sungai Besi",
+   "lat": 3.039086,
+   "lng": 101.706046
+  },
+  {
+   "id": 36359405,
+   "name": "Plaza Tol Pagoh",
+   "lat": 2.131007,
+   "lng": 102.731388
+  },
+  {
+   "id": 36359972,
+   "name": "Plaza Tol Pagoh",
+   "lat": 2.130888,
+   "lng": 102.73133
+  },
+  {
+   "id": 36365909,
+   "name": "Plaza Tol Nilai",
+   "lat": 2.83314,
+   "lng": 101.797782
+  },
+  {
+   "id": 36368889,
+   "name": "Plaza Tol Sg Ramal (B)",
+   "lat": 2.98029,
+   "lng": 101.77039
+  },
+  {
+   "id": 36419521,
+   "name": "Plaza Tol Sg Ramal (T)",
+   "lat": 2.979458,
+   "lng": 101.775387
+  },
+  {
+   "id": 36420202,
+   "name": "Plaza Tol Putra Mahkota",
+   "lat": 2.88208,
+   "lng": 101.788744
+  },
+  {
+   "id": 36420568,
+   "name": "Plaza Tol Putra Mahkota",
+   "lat": 2.881916,
+   "lng": 101.788833
+  },
+  {
+   "id": 38072273,
+   "name": "Plaza Tol Pantai Dalam (B)",
+   "lat": 3.090678,
+   "lng": 101.670796
+  },
+  {
+   "id": 38072304,
+   "name": "Plaza Tol PJS 2",
+   "lat": 3.083956,
+   "lng": 101.631453
+  },
+  {
+   "id": 139771094,
+   "name": "Plaza Tol Kajang",
+   "lat": 2.985622,
+   "lng": 101.744128
+  },
+  {
+   "id": 139849067,
+   "name": "Plaza Tol Bangi",
+   "lat": 2.932818,
+   "lng": 101.760146
+  },
+  {
+   "id": 142417956,
+   "name": "Plaza Tol Kemuning (Arah Barat)",
+   "lat": 2.997187,
+   "lng": 101.522277
+  },
+  {
+   "id": 142431109,
+   "name": "Plaza Tol Kemuning (Arah Timur)",
+   "lat": 2.997482,
+   "lng": 101.521941
+  },
+  {
+   "id": 143982341,
+   "name": "Plaza Tol Kapar",
+   "lat": 3.075138,
+   "lng": 101.42208
+  },
+  {
+   "id": 158777046,
+   "name": "Plaza Tol KLIA",
+   "lat": 2.832444,
+   "lng": 101.660409
+  },
+  {
+   "id": 158777563,
+   "name": "Plaza Tol KLIA",
+   "lat": 2.832455,
+   "lng": 101.660787
+  },
+  {
+   "id": 170834878,
+   "name": "Plaza Tol Mines Selatan",
+   "lat": 3.04405,
+   "lng": 101.708422
+  },
+  {
+   "id": 202275486,
+   "name": "Plaza Tol Sg Long (Arah Barat)",
+   "lat": 3.027662,
+   "lng": 101.810336
+  },
+  {
+   "id": 206190525,
+   "name": "Plaza Tol Bukit Jelutong (Arah Utara)",
+   "lat": 3.123674,
+   "lng": 101.528076
+  },
+  {
+   "id": 206192045,
+   "name": "Plaza Tol Elmina (Arah Utara)",
+   "lat": 3.203651,
+   "lng": 101.507091
+  },
+  {
+   "id": 206192287,
+   "name": "Plaza Tol Elmina (Arah Selatan)",
+   "lat": 3.203653,
+   "lng": 101.507443
+  },
+  {
+   "id": 206192361,
+   "name": "Plaza Tol Bukit Jelutong (Arah Selatan)",
+   "lat": 3.12375,
+   "lng": 101.528514
+  },
+  {
+   "id": 206201286,
+   "name": "Plaza Tol Lagong (Arah Utara)",
+   "lat": 3.262324,
+   "lng": 101.538996
+  },
+  {
+   "id": 206201345,
+   "name": "Plaza Tol Lagong (Arah Selatan)",
+   "lat": 3.26205,
+   "lng": 101.539313
+  },
+  {
+   "id": 206201433,
+   "name": "Plaza Tol Rawang Selatan",
+   "lat": 3.274954,
+   "lng": 101.549586
+  },
+  {
+   "id": 206201608,
+   "name": "Plaza Tol Rawang Selatan (Plaza B)",
+   "lat": 3.274828,
+   "lng": 101.549729
+  },
+  {
+   "id": 206201899,
+   "name": "Plaza Tol Hospital Sungai Buloh",
+   "lat": 3.223076,
+   "lng": 101.580562
+  },
+  {
+   "id": 207157534,
+   "name": "Plaza Tol Sungai Balak (Arah Utara)",
+   "lat": 3.007677,
+   "lng": 101.769953
+  },
+  {
+   "id": 237651358,
+   "name": "Plaza Tol Bangi",
+   "lat": 2.933022,
+   "lng": 101.760132
+  },
+  {
+   "id": 242126685,
+   "name": "Plaza Tol Kajang",
+   "lat": 2.985331,
+   "lng": 101.744122
+  },
+  {
+   "id": 250552889,
+   "name": "Port Dickson",
+   "lat": 2.687368,
+   "lng": 101.931077
+  },
+  {
+   "id": 251017197,
+   "name": "Plaza Tol Kota Damansara",
+   "lat": 3.155538,
+   "lng": 101.589067
+  },
+  {
+   "id": 251017902,
+   "name": "Plaza Tol Damansara",
+   "lat": 3.133911,
+   "lng": 101.60402
+  },
+  {
+   "id": 251018070,
+   "name": "Plaza Tol Damansara (B)",
+   "lat": 3.130698,
+   "lng": 101.63876
+  },
+  {
+   "id": 254309764,
+   "name": "Plaza Tol Ebor Utara",
+   "lat": 3.065047,
+   "lng": 101.557394
+  },
+  {
+   "id": 255912753,
+   "name": "Plaza Tol Simpang Ampat",
+   "lat": 2.446973,
+   "lng": 102.18391
+  },
+  {
+   "id": 257423539,
+   "name": "Plaza Tol Salak Selatan",
+   "lat": 3.110723,
+   "lng": 101.711737
+  },
+  {
+   "id": 257423936,
+   "name": "Plaza Tol Salak Selatan",
+   "lat": 3.110525,
+   "lng": 101.712049
+  },
+  {
+   "id": 260330533,
+   "name": "Plaza Tol Tangkak",
+   "lat": 2.245019,
+   "lng": 102.533459
+  },
+  {
+   "id": 262332927,
+   "name": "Plaza Tol Ayer Keroh",
+   "lat": 2.30039,
+   "lng": 102.310307
+  },
+  {
+   "id": 262334766,
+   "name": "Plaza Tol Ayer Keroh",
+   "lat": 2.300333,
+   "lng": 102.310533
+  },
+  {
+   "id": 263862052,
+   "name": "Plaza Tol Bukit Raja",
+   "lat": 3.069441,
+   "lng": 101.454337
+  },
+  {
+   "id": 264168466,
+   "name": "Plaza Tol Rawang",
+   "lat": 3.304428,
+   "lng": 101.548537
+  },
+  {
+   "id": 264168859,
+   "name": "Plaza Tol Rawang",
+   "lat": 3.304356,
+   "lng": 101.54874
+  },
+  {
+   "id": 264174125,
+   "name": "Plaza Tol Sungai Buloh",
+   "lat": 3.201626,
+   "lng": 101.586173
+  },
+  {
+   "id": 267300082,
+   "name": "Plaza Tol Damansara",
+   "lat": 3.134138,
+   "lng": 101.604041
+  },
+  {
+   "id": 267301023,
+   "name": "Plaza Tol Bukit Kiara",
+   "lat": 3.16445,
+   "lng": 101.642894
+  },
+  {
+   "id": 268015623,
+   "name": "Plaza Tol Port Dickson",
+   "lat": 2.690101,
+   "lng": 101.933144
+  },
+  {
+   "id": 268015895,
+   "name": "Port Dickson",
+   "lat": 2.687531,
+   "lng": 101.93099
+  },
+  {
+   "id": 268016000,
+   "name": "Plaza Tol Mambau",
+   "lat": 2.663342,
+   "lng": 101.922652
+  },
+  {
+   "id": 268016616,
+   "name": "Plaza Tol Mambau",
+   "lat": 2.663286,
+   "lng": 101.922906
+  },
+  {
+   "id": 269388859,
+   "name": "Plaza Tol Sg Long (Arah Timur)",
+   "lat": 3.028064,
+   "lng": 101.810352
+  },
+  {
+   "id": 269953873,
+   "name": "Plaza Tol PJS 5",
+   "lat": 3.079166,
+   "lng": 101.623383
+  },
+  {
+   "id": 270861235,
+   "name": "Plaza Tol Subang",
+   "lat": 3.102943,
+   "lng": 101.590347
+  },
+  {
+   "id": 271154279,
+   "name": "Plaza Tol Penchala (Arah Utara)",
+   "lat": 3.177639,
+   "lng": 101.619045
+  },
+  {
+   "id": 271154296,
+   "name": "Plaza Tol Penchala (Arah Selatan)",
+   "lat": 3.177627,
+   "lng": 101.619549
+  },
+  {
+   "id": 271173139,
+   "name": "Plaza Tol Bukit Kiara",
+   "lat": 3.164109,
+   "lng": 101.643022
+  },
+  {
+   "id": 284148863,
+   "name": "Plaza Tol Batu 11",
+   "lat": 3.04819,
+   "lng": 101.775981
+  },
+  {
+   "id": 284153970,
+   "name": "Plaza Tol Bukit Kajang (Arah Timur)",
+   "lat": 2.975883,
+   "lng": 101.814741
+  },
+  {
+   "id": 284153980,
+   "name": "Plaza Tol Bukit Kajang (Arah Barat)",
+   "lat": 2.975287,
+   "lng": 101.815161
+  },
+  {
+   "id": 290398308,
+   "name": "Plaza Tol Lima Kedai",
+   "lat": 1.505878,
+   "lng": 103.607214
+  },
+  {
+   "id": 290398362,
+   "name": "Plaza Tol Senai Utara",
+   "lat": 1.600105,
+   "lng": 103.61387
+  },
+  {
+   "id": 300590193,
+   "name": "Plaza Tol Jalan Duta",
+   "lat": 3.175515,
+   "lng": 101.655814
+  },
+  {
+   "id": 300590811,
+   "name": "Plaza Tol Jalan Duta",
+   "lat": 3.176021,
+   "lng": 101.655711
+  },
+  {
+   "id": 301423671,
+   "name": "Plaza Tol Ipoh Utara",
+   "lat": 4.663508,
+   "lng": 101.079188
+  },
+  {
+   "id": 301782374,
+   "name": "Plaza Tol Jelapang",
+   "lat": 4.666381,
+   "lng": 101.072679
+  },
+  {
+   "id": 302014011,
+   "name": "Plaza Tol Ipoh Utara",
+   "lat": 4.664301,
+   "lng": 101.079891
+  },
+  {
+   "id": 302776760,
+   "name": "Plaza Tol Jasin",
+   "lat": 2.264091,
+   "lng": 102.433958
+  },
+  {
+   "id": 310109817,
+   "name": "Plaza Tol Semenyih",
+   "lat": 2.940635,
+   "lng": 101.827819
+  },
+  {
+   "id": 310110264,
+   "name": "Plaza Tol Kajang Selatan",
+   "lat": 2.95724,
+   "lng": 101.826181
+  },
+  {
+   "id": 310110286,
+   "name": "Plaza Tol Kajang Selatan",
+   "lat": 2.957507,
+   "lng": 101.825833
+  },
+  {
+   "id": 310110289,
+   "name": "Plaza Tol Semenyih",
+   "lat": 2.940808,
+   "lng": 101.827875
+  },
+  {
+   "id": 310462098,
+   "name": "Tol Plaza Pajam",
+   "lat": 2.840468,
+   "lng": 101.833721
+  },
+  {
+   "id": 310462272,
+   "name": "Tol Plaza Pajam",
+   "lat": 2.840609,
+   "lng": 101.833729
+  },
+  {
+   "id": 318685997,
+   "name": "Plaza Tol Kota Damansara",
+   "lat": 3.155799,
+   "lng": 101.589003
+  },
+  {
+   "id": 321188707,
+   "name": "Plaza Tol Kapar (Timur)",
+   "lat": 3.070324,
+   "lng": 101.416341
+  },
+  {
+   "id": 321188708,
+   "name": "Plaza Tol Kapar (Timur)",
+   "lat": 3.070305,
+   "lng": 101.416436
+  },
+  {
+   "id": 331521125,
+   "name": "Plaza Tol Yong Peng Utara",
+   "lat": 2.003147,
+   "lng": 103.045667
+  },
+  {
+   "id": 344489908,
+   "name": "Plaza Tol Senai Utara",
+   "lat": 1.600046,
+   "lng": 103.614177
+  },
+  {
+   "id": 344491079,
+   "name": "Plaza Tol Lima Kedai",
+   "lat": 1.505965,
+   "lng": 103.607457
+  },
+  {
+   "id": 346190916,
+   "name": "Genting Highlands Entry",
+   "lat": 3.362839,
+   "lng": 101.77506
+  },
+  {
+   "id": 346193440,
+   "name": "Plaza Tol Gombak (Arah Barat)",
+   "lat": 3.24193,
+   "lng": 101.727225
+  },
+  {
+   "id": 358484914,
+   "name": "Plaza Tol Machap",
+   "lat": 1.883952,
+   "lng": 103.241826
+  },
+  {
+   "id": 358487589,
+   "name": "Plaza Tol Sedenak",
+   "lat": 1.710237,
+   "lng": 103.449052
+  },
+  {
+   "id": 361000707,
+   "name": "Plaza Tol Bukit Raja",
+   "lat": 3.069594,
+   "lng": 101.454569
+  },
+  {
+   "id": 364128398,
+   "name": "Plaza Tol Putra Heights",
+   "lat": 2.989752,
+   "lng": 101.576816
+  },
+  {
+   "id": 364128423,
+   "name": "Plaza Tol Putra Heights",
+   "lat": 2.989656,
+   "lng": 101.5771
+  },
+  {
+   "id": 370321522,
+   "name": "Plaza Tol Tanjung Kupang",
+   "lat": 1.382141,
+   "lng": 103.593716
+  },
+  {
+   "id": 370693053,
+   "name": "Plaza Tol Mantin",
+   "lat": 2.812672,
+   "lng": 101.905
+  },
+  {
+   "id": 370693186,
+   "name": "Plaza Tol Mantin",
+   "lat": 2.812792,
+   "lng": 101.905103
+  },
+  {
+   "id": 375557510,
+   "name": "Plaza Tol Port Dickson",
+   "lat": 2.690041,
+   "lng": 101.933316
+  },
+  {
+   "id": 391716344,
+   "name": "Plaza Tol Ebor Selatan",
+   "lat": 3.056101,
+   "lng": 101.559692
+  },
+  {
+   "id": 413876576,
+   "name": "Plaza Tol Sungai Dua",
+   "lat": 5.4586,
+   "lng": 100.41897
+  },
+  {
+   "id": 414616505,
+   "name": "Plaza Tol Gombak (Arah Timur)",
+   "lat": 3.242077,
+   "lng": 101.727104
+  },
+  {
+   "id": 414625951,
+   "name": "Plaza Tol Batu",
+   "lat": 3.192155,
+   "lng": 101.675193
+  },
+  {
+   "id": 422450490,
+   "name": "Plaza Tol Gurun",
+   "lat": 5.815403,
+   "lng": 100.488691
+  },
+  {
+   "id": 474940710,
+   "name": "Plaza Tol Subang",
+   "lat": 3.102865,
+   "lng": 101.590731
+  },
+  {
+   "id": 485865934,
+   "name": "Plaza Tol Simpang Pulai",
+   "lat": 4.525501,
+   "lng": 101.132882
+  },
+  {
+   "id": 485865943,
+   "name": "Plaza Tol Simpang Pulai",
+   "lat": 4.525612,
+   "lng": 101.13282
+  },
+  {
+   "id": 579629904,
+   "name": "Plaza Tol Seremban",
+   "lat": 2.714335,
+   "lng": 101.916083
+  },
+  {
+   "id": 584724144,
+   "name": "Plaza Tol Sungai Petani Selatan",
+   "lat": 5.615215,
+   "lng": 100.485328
+  },
+  {
+   "id": 587618948,
+   "name": "Plaza Tol Sungai Petani Utara",
+   "lat": 5.676295,
+   "lng": 100.511152
+  },
+  {
+   "id": 587619754,
+   "name": "Plaza Tol Sungai Petani Selatan",
+   "lat": 5.615052,
+   "lng": 100.485321
+  },
+  {
+   "id": 587620582,
+   "name": "Plaza Tol Sungai Petani Utara",
+   "lat": 5.676138,
+   "lng": 100.511125
+  },
+  {
+   "id": 587752956,
+   "name": "Plaza Tol Bukit Beruntung",
+   "lat": 3.424459,
+   "lng": 101.553392
+  },
+  {
+   "id": 590199306,
+   "name": "Plaza Tol Bagan Ajam",
+   "lat": 5.431521,
+   "lng": 100.37702
+  },
+  {
+   "id": 590199316,
+   "name": "Plaza Tol Bagan Ajam",
+   "lat": 5.431579,
+   "lng": 100.376648
+  },
+  {
+   "id": 595497482,
+   "name": "Plaza Tol Bertam",
+   "lat": 5.519545,
+   "lng": 100.442855
+  },
+  {
+   "id": 608261306,
+   "name": "Plaza Tol Tapah",
+   "lat": 4.214187,
+   "lng": 101.269326
+  },
+  {
+   "id": 613347610,
+   "name": "Plaza Tol Taiping Utara",
+   "lat": 4.895293,
+   "lng": 100.669887
+  },
+  {
+   "id": 632282420,
+   "name": "Plaza Tol Bukit Tagar",
+   "lat": 3.494154,
+   "lng": 101.521896
+  },
+  {
+   "id": 647529163,
+   "name": "Plaza Tol Lunas",
+   "lat": 5.417072,
+   "lng": 100.530778
+  },
+  {
+   "id": 677322209,
+   "name": "Plaza Tol Pedas",
+   "lat": 2.566673,
+   "lng": 102.044777
+  },
+  {
+   "id": 677399137,
+   "name": "Plaza Tol Petaling Jaya (B)",
+   "lat": 3.060556,
+   "lng": 101.61406
+  },
+  {
+   "id": 679492372,
+   "name": "Plaza Tol Awan Besar (Atah Barat)",
+   "lat": 3.063588,
+   "lng": 101.679293
+  },
+  {
+   "id": 710143498,
+   "name": "Plaza Tol Chenor",
+   "lat": 3.540729,
+   "lng": 102.512107
+  },
+  {
+   "id": 718369972,
+   "name": "Plaza Tol Bukit Merah",
+   "lat": 4.996187,
+   "lng": 100.65407
+  },
+  {
+   "id": 722528230,
+   "name": "Plaza Tol Sentul Pasar",
+   "lat": 3.196478,
+   "lng": 101.699517
+  },
+  {
+   "id": 771239062,
+   "name": "Plaza Tol Puchong Selatan (Arah Utara)",
+   "lat": 2.981087,
+   "lng": 101.636162
+  },
+  {
+   "id": 771239097,
+   "name": "Plaza Tol Puchong Selatan (Arah Selatan)",
+   "lat": 2.981555,
+   "lng": 101.636449
+  },
+  {
+   "id": 839749238,
+   "name": "Plaza Tol Bandar Saujana Putra",
+   "lat": 2.955974,
+   "lng": 101.580109
+  },
+  {
+   "id": 839754409,
+   "name": "Plaza Tol Bandar Saujana Putra",
+   "lat": 2.955986,
+   "lng": 101.579789
+  },
+  {
+   "id": 876526558,
+   "name": "Plaza Tol SKVE Saujana Putra",
+   "lat": 2.948149,
+   "lng": 101.582144
+  },
+  {
+   "id": 876528761,
+   "name": "Plaza Tol SKVE Saujana Putra",
+   "lat": 2.947896,
+   "lng": 101.581926
+  },
+  {
+   "id": 876529217,
+   "name": "Tol Plaza Ayer Hitam",
+   "lat": 2.976588,
+   "lng": 101.651833
+  },
+  {
+   "id": 876530263,
+   "name": "Tol Plaza Ayer Hitam",
+   "lat": 2.976382,
+   "lng": 101.651776
+  },
+  {
+   "id": 1048560343,
+   "name": "Plaza Tol Gambang",
+   "lat": 3.738057,
+   "lng": 103.115897
+  },
+  {
+   "id": 1058858936,
+   "name": "Plaza Tol Ipoh Selatan",
+   "lat": 4.583255,
+   "lng": 101.143674
+  },
+  {
+   "id": 1328497648,
+   "name": "Plaza Tol Perling",
+   "lat": 1.488476,
+   "lng": 103.671886
+  },
+  {
+   "id": 1450715701,
+   "name": "Plaza Tol Maran",
+   "lat": 3.604447,
+   "lng": 102.787895
+  },
+  {
+   "id": 1484203243,
+   "name": "Plaza Tol Seafield",
+   "lat": 3.053292,
+   "lng": 101.568524
+  },
+  {
+   "id": 1484203253,
+   "name": "Plaza Tol Seafield",
+   "lat": 3.053705,
+   "lng": 101.568164
+  },
+  {
+   "id": 1495060789,
+   "name": "Plaza Tol Slim River",
+   "lat": 3.84667,
+   "lng": 101.396321
+  },
+  {
+   "id": 1496077680,
+   "name": "Plaza Tol Taman Rimba Templer (Arah Timur)",
+   "lat": 3.288594,
+   "lng": 101.581996
+  },
+  {
+   "id": 1497282455,
+   "name": "Plaza Tol Damansara (A)",
+   "lat": 3.12926,
+   "lng": 101.641815
+  },
+  {
+   "id": 1498654391,
+   "name": "Plaza Tol Sunway (Arah Barat)",
+   "lat": 3.058392,
+   "lng": 101.608165
+  },
+  {
+   "id": 1498654393,
+   "name": "Plaza Tol Sunway (Arah Timur)",
+   "lat": 3.05903,
+   "lng": 101.608414
+  },
+  {
+   "id": 1498654396,
+   "name": "Plaza Tol Petaling Jaya (Arah Utara)",
+   "lat": 3.060548,
+   "lng": 101.613314
+  },
+  {
+   "id": 1506257383,
+   "name": "Plaza Tol Awan Besar (Arah Timur)",
+   "lat": 3.066407,
+   "lng": 101.664901
+  },
+  {
+   "id": 1512487260,
+   "name": "Plaza Tol Kuang Timur",
+   "lat": 3.270639,
+   "lng": 101.530433
+  },
+  {
+   "id": 1513954203,
+   "name": "Plaza Tol Slim River",
+   "lat": 3.846653,
+   "lng": 101.396414
+  },
+  {
+   "id": 1513954313,
+   "name": "Plaza Tol Tapah",
+   "lat": 4.214137,
+   "lng": 101.269221
+  },
+  {
+   "id": 1548423324,
+   "name": "Plaza Tol Kempas",
+   "lat": 1.5541,
+   "lng": 103.701117
+  },
+  {
+   "id": 1551369627,
+   "name": "Plaza Tol Nilai",
+   "lat": 2.832888,
+   "lng": 101.797891
+  },
+  {
+   "id": 1556644063,
+   "name": "Plaza Tol Pantai Dalam (T)",
+   "lat": 3.090642,
+   "lng": 101.670058
+  },
+  {
+   "id": 1580749257,
+   "name": "Plaza Tol Lembah Beringin",
+   "lat": 3.574081,
+   "lng": 101.527662
+  },
+  {
+   "id": 1602187838,
+   "name": "Plaza Tol Seremban",
+   "lat": 2.716652,
+   "lng": 101.915859
+  },
+  {
+   "id": 1619870086,
+   "name": "Plaza Tol Taman Rimba Templer (Arah Barat)",
+   "lat": 3.2883,
+   "lng": 101.582059
+  },
+  {
+   "id": 1640191156,
+   "name": "Plaza Tol Perling",
+   "lat": 1.488314,
+   "lng": 103.672019
+  },
+  {
+   "id": 1659891421,
+   "name": "Kubang Semang Toll Plaza",
+   "lat": 5.39864,
+   "lng": 100.425002
+  },
+  {
+   "id": 1677077869,
+   "name": "Jabor Toll Plaza",
+   "lat": 3.94543,
+   "lng": 103.317617
+  },
+  {
+   "id": 1677077878,
+   "name": "Jabor Toll Plaza",
+   "lat": 3.945527,
+   "lng": 103.317498
+  },
+  {
+   "id": 1679571159,
+   "name": "Plaza Tol Skudai",
+   "lat": 1.581979,
+   "lng": 103.64563
+  },
+  {
+   "id": 1679572865,
+   "name": "Plaza Tol Simpang Renggam",
+   "lat": 1.795853,
+   "lng": 103.323281
+  },
+  {
+   "id": 1679572867,
+   "name": "Plaza Tol Simpang Renggam",
+   "lat": 1.795925,
+   "lng": 103.323399
+  },
+  {
+   "id": 1694044828,
+   "name": "Plaza Tol Bentong (Arah Timur)",
+   "lat": 3.469664,
+   "lng": 101.904735
+  },
+  {
+   "id": 1694575217,
+   "name": "Plaza Tol Bentong (Arah Barat)",
+   "lat": 3.469684,
+   "lng": 101.905165
+  },
+  {
+   "id": 1699257713,
+   "name": "Plaza Tol Temerloh",
+   "lat": 3.504363,
+   "lng": 102.404116
+  },
+  {
+   "id": 1699257715,
+   "name": "Plaza Tol Temerloh",
+   "lat": 3.504463,
+   "lng": 102.404086
+  },
+  {
+   "id": 1699258292,
+   "name": "Plaza Tol Lanchang",
+   "lat": 3.523058,
+   "lng": 102.17352
+  },
+  {
+   "id": 1699258296,
+   "name": "Plaza Tol Lanchang",
+   "lat": 3.52316,
+   "lng": 102.173509
+  },
+  {
+   "id": 1719099968,
+   "name": "Plaza Tol Bukit Tagar",
+   "lat": 3.494301,
+   "lng": 101.52189
+  },
+  {
+   "id": 1723784987,
+   "name": "Plaza Tol Tanjung Malim",
+   "lat": 3.659349,
+   "lng": 101.534627
+  },
+  {
+   "id": 1723784991,
+   "name": "Plaza Tol Tanjung Malim",
+   "lat": 3.659438,
+   "lng": 101.534578
+  },
+  {
+   "id": 1745136801,
+   "name": "Plaza Tol Kapar",
+   "lat": 3.075218,
+   "lng": 101.421928
+  },
+  {
+   "id": 1748287452,
+   "name": "Plaza Tol Kapar (Arah Barat)",
+   "lat": 3.068392,
+   "lng": 101.420721
+  },
+  {
+   "id": 1754782432,
+   "name": "Plaza Tol Sungkai",
+   "lat": 3.989225,
+   "lng": 101.315726
+  },
+  {
+   "id": 1754782433,
+   "name": "Plaza Tol Sungkai",
+   "lat": 3.989304,
+   "lng": 101.315681
+  },
+  {
+   "id": 1755683475,
+   "name": "Plaza Tol Setia Alam",
+   "lat": 3.091589,
+   "lng": 101.486207
+  },
+  {
+   "id": 1755683488,
+   "name": "Plaza Tol Setia Alam",
+   "lat": 3.09199,
+   "lng": 101.486213
+  },
+  {
+   "id": 1760582701,
+   "name": "Plaza Tol Teluk Panglima Garang",
+   "lat": 2.895558,
+   "lng": 101.485125
+  },
+  {
+   "id": 1760582702,
+   "name": "Plaza Tol Teluk Panglima Garang",
+   "lat": 2.895354,
+   "lng": 101.485293
+  },
+  {
+   "id": 1788035810,
+   "name": "Plaza Tol Behrang",
+   "lat": 3.739894,
+   "lng": 101.459285
+  },
+  {
+   "id": 1788035812,
+   "name": "Plaza Tol Behrang",
+   "lat": 3.739991,
+   "lng": 101.459286
+  },
+  {
+   "id": 1788254669,
+   "name": "Plaza Tol Pedas",
+   "lat": 2.566742,
+   "lng": 102.044843
+  },
+  {
+   "id": 1819888841,
+   "name": "Penawar Toll Plaza",
+   "lat": 1.577873,
+   "lng": 104.191219
+  },
+  {
+   "id": 1819888844,
+   "name": "Penawar Toll Plaza",
+   "lat": 1.57763,
+   "lng": 104.191248
+  },
+  {
+   "id": 1819888860,
+   "name": "Ulu Tiram Toll Plaza",
+   "lat": 1.586306,
+   "lng": 103.812079
+  },
+  {
+   "id": 1819901662,
+   "name": "Ulu Tiram Toll Plaza",
+   "lat": 1.586199,
+   "lng": 103.811856
+  },
+  {
+   "id": 1826512240,
+   "name": "Kubang Semang Toll Plaza",
+   "lat": 5.39835,
+   "lng": 100.425104
+  },
+  {
+   "id": 1834889432,
+   "name": "Toll plaza",
+   "lat": 4.298017,
+   "lng": 101.252199
+  },
+  {
+   "id": 1855300166,
+   "name": "Plaza Tol Sri Jaya",
+   "lat": 3.67768,
+   "lng": 102.886005
+  },
+  {
+   "id": 1858318069,
+   "name": "Plaza Tol Bidor",
+   "lat": 4.106899,
+   "lng": 101.297949
+  },
+  {
+   "id": 1878668537,
+   "name": "Plaza Tol Yong Peng Selatan",
+   "lat": 1.998519,
+   "lng": 103.078153
+  },
+  {
+   "id": 1971910709,
+   "name": "Plaza Tol Sri Jaya",
+   "lat": 3.677605,
+   "lng": 102.885882
+  },
+  {
+   "id": 1977413964,
+   "name": "Plaza Tol Jambatan Pulau Pinang (A)",
+   "lat": 5.359048,
+   "lng": 100.394192
+  },
+  {
+   "id": 1977413978,
+   "name": "Plaza Tol Jambatan Pulau Pinang (B)",
+   "lat": 5.357551,
+   "lng": 100.39317
+  },
+  {
+   "id": 1977422449,
+   "name": "Plaza Tol Ipoh Selatan",
+   "lat": 4.585234,
+   "lng": 101.144744
+  },
+  {
+   "id": 1979452317,
+   "name": "Plaza Tol Kuantan",
+   "lat": 3.87018,
+   "lng": 103.242055
+  },
+  {
+   "id": 1979465486,
+   "name": "Plaza Tol Kuantan",
+   "lat": 3.870241,
+   "lng": 103.241901
+  },
+  {
+   "id": 1983060685,
+   "name": "Plaza Tol Kerteh",
+   "lat": 4.481489,
+   "lng": 103.408055
+  },
+  {
+   "id": 1983060748,
+   "name": "Plaza Tol Kerteh",
+   "lat": 4.481434,
+   "lng": 103.407897
+  },
+  {
+   "id": 1983076700,
+   "name": "Plaza Tol Bertam",
+   "lat": 5.519473,
+   "lng": 100.442695
+  },
+  {
+   "id": 1983078488,
+   "name": "Plaza Tol Sungai Dua",
+   "lat": 5.458688,
+   "lng": 100.419159
+  },
+  {
+   "id": 1983904993,
+   "name": "Plaza Tol Paka",
+   "lat": 4.591519,
+   "lng": 103.347226
+  },
+  {
+   "id": 1988058416,
+   "name": "Plaza Tol Paka",
+   "lat": 4.591629,
+   "lng": 103.347339
+  },
+  {
+   "id": 2081272190,
+   "name": "Plaza Tol Tanjung Kupang",
+   "lat": 1.382086,
+   "lng": 103.593448
+  },
+  {
+   "id": 2081316188,
+   "name": "Plaza Tol Yong Peng Utara",
+   "lat": 2.003047,
+   "lng": 103.045616
+  },
+  {
+   "id": 2081317904,
+   "name": "Plaza Tol Yong Peng Selatan",
+   "lat": 1.998444,
+   "lng": 103.078084
+  },
+  {
+   "id": 2081325382,
+   "name": "Plaza Tol Jasin",
+   "lat": 2.264221,
+   "lng": 102.433809
+  },
+  {
+   "id": 2084225483,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.107755,
+   "lng": 101.702035
+  },
+  {
+   "id": 2084225484,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.108176,
+   "lng": 101.70141
+  },
+  {
+   "id": 2110298943,
+   "name": "Plaza Tol Senawang",
+   "lat": 2.685635,
+   "lng": 101.965582
+  },
+  {
+   "id": 2110298947,
+   "name": "Plaza Tol Senawang",
+   "lat": 2.685813,
+   "lng": 101.965525
+  },
+  {
+   "id": 2119444030,
+   "name": "Plaza Tol Sedenak",
+   "lat": 1.710291,
+   "lng": 103.449112
+  },
+  {
+   "id": 2119446185,
+   "name": "Plaza Tol Kulai",
+   "lat": 1.649846,
+   "lng": 103.555582
+  },
+  {
+   "id": 2119446190,
+   "name": "Plaza Tol Kulai",
+   "lat": 1.649995,
+   "lng": 103.555546
+  },
+  {
+   "id": 2173135661,
+   "name": "Plaza Tol Chenor",
+   "lat": 3.540649,
+   "lng": 102.512132
+  },
+  {
+   "id": 2173135728,
+   "name": "Plaza Tol Maran",
+   "lat": 3.604412,
+   "lng": 102.787771
+  },
+  {
+   "id": 2174466319,
+   "name": "Plaza Tol Gambang",
+   "lat": 3.738147,
+   "lng": 103.116034
+  },
+  {
+   "id": 2187969903,
+   "name": "Plaza Tol Gopeng",
+   "lat": 4.453157,
+   "lng": 101.167518
+  },
+  {
+   "id": 2187969906,
+   "name": "Plaza Tol Gopeng",
+   "lat": 4.453243,
+   "lng": 101.167513
+  },
+  {
+   "id": 2204829191,
+   "name": "Cahaya Baru Toll Plaza",
+   "lat": 1.516041,
+   "lng": 103.964803
+  },
+  {
+   "id": 2204829192,
+   "name": "Cahaya Baru Toll Plaza",
+   "lat": 1.516057,
+   "lng": 103.965149
+  },
+  {
+   "id": 2297827130,
+   "name": "Plaza Tol Ayer Hitam",
+   "lat": 1.930373,
+   "lng": 103.186219
+  },
+  {
+   "id": 2297827132,
+   "name": "Plaza Tol Ayer Hitam",
+   "lat": 1.930527,
+   "lng": 103.186293
+  },
+  {
+   "id": 2338859046,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.106545,
+   "lng": 101.700372
+  },
+  {
+   "id": 2338859060,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.108903,
+   "lng": 101.702454
+  },
+  {
+   "id": 2338859062,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.108965,
+   "lng": 101.702324
+  },
+  {
+   "id": 2465984364,
+   "name": "Plaza Tol Bukit Merah",
+   "lat": 4.996284,
+   "lng": 100.654077
+  },
+  {
+   "id": 2497618861,
+   "name": "Plaza Tol Bidor",
+   "lat": 4.107143,
+   "lng": 101.297939
+  },
+  {
+   "id": 2498578660,
+   "name": "Penyel Camping Reception",
+   "lat": 4.929014,
+   "lng": 101.323069
+  },
+  {
+   "id": 2518636152,
+   "name": "Plaza Tol Bukit Beruntung",
+   "lat": 3.424287,
+   "lng": 101.553398
+  },
+  {
+   "id": 2529605986,
+   "name": "Plaza Tol Taiping Utara",
+   "lat": 4.895187,
+   "lng": 100.669934
+  },
+  {
+   "id": 2618295583,
+   "name": "Butterworth Ferry Terminal Toll Booth",
+   "lat": 5.393326,
+   "lng": 100.365668
+  },
+  {
+   "id": 2618528895,
+   "name": "Plaza Tol Sungai Balak (Arah Selatan)",
+   "lat": 3.007892,
+   "lng": 101.770376
+  },
+  {
+   "id": 2760121896,
+   "name": "Plaza Tol Batang Baram",
+   "lat": 4.572591,
+   "lng": 114.074091
+  },
+  {
+   "id": 2826185598,
+   "name": "Plaza Tol Ampangan",
+   "lat": 2.759708,
+   "lng": 101.967611
+  },
+  {
+   "id": 2826185600,
+   "name": "Plaza Tol Ampangan",
+   "lat": 2.759879,
+   "lng": 101.967817
+  },
+  {
+   "id": 2847670150,
+   "name": "Toll plaza",
+   "lat": 5.356575,
+   "lng": 100.392894
+  },
+  {
+   "id": 2866477743,
+   "name": "Plaza Tol Bandar Cassia (A)",
+   "lat": 5.233402,
+   "lng": 100.453417
+  },
+  {
+   "id": 2903668051,
+   "name": "Plaza Tol Cheneh",
+   "lat": 4.127163,
+   "lng": 103.26685
+  },
+  {
+   "id": 2903668052,
+   "name": "Plaza Tol Cheneh",
+   "lat": 4.12725,
+   "lng": 103.26673
+  },
+  {
+   "id": 2911228086,
+   "name": "Plaza Tol Loke Yew (Arah Barat)",
+   "lat": 3.120591,
+   "lng": 101.724808
+  },
+  {
+   "id": 2911228087,
+   "name": "Plaza Tol Loke Yew (Arah Timur)",
+   "lat": 3.120987,
+   "lng": 101.724605
+  },
+  {
+   "id": 2913824622,
+   "name": "Plaza Tol Karak (Arah Barat)",
+   "lat": 3.443676,
+   "lng": 102.027597
+  },
+  {
+   "id": 2913824623,
+   "name": "Plaza Tol Karak (Arah Timur)",
+   "lat": 3.443836,
+   "lng": 102.027419
+  },
+  {
+   "id": 2914133577,
+   "name": "Plaza Tol Ajil",
+   "lat": 5.087658,
+   "lng": 103.073949
+  },
+  {
+   "id": 2914133578,
+   "name": "Plaza Tol Ajil",
+   "lat": 5.08748,
+   "lng": 103.073917
+  },
+  {
+   "id": 2914142211,
+   "name": "Plaza Tol Bukit Besi",
+   "lat": 4.801413,
+   "lng": 103.195652
+  },
+  {
+   "id": 2914142212,
+   "name": "Plaza Tol Bukit Besi",
+   "lat": 4.801448,
+   "lng": 103.195804
+  },
+  {
+   "id": 2914171332,
+   "name": "Plaza Tol Telemung",
+   "lat": 5.239141,
+   "lng": 102.999242
+  },
+  {
+   "id": 2914171341,
+   "name": "Plaza Tol Telemung",
+   "lat": 5.239249,
+   "lng": 102.999122
+  },
+  {
+   "id": 2914214285,
+   "name": "Plaza Tol Kuala Terengganu",
+   "lat": 5.336634,
+   "lng": 103.021573
+  },
+  {
+   "id": 2914214286,
+   "name": "Plaza Tol Kuala Terengganu",
+   "lat": 5.336755,
+   "lng": 103.021507
+  },
+  {
+   "id": 2919814530,
+   "name": "Plaza Tol Petaling Jaya (A)",
+   "lat": 3.06054,
+   "lng": 101.613777
+  },
+  {
+   "id": 2924785827,
+   "name": "Plaza Tol Machap",
+   "lat": 1.883919,
+   "lng": 103.241937
+  },
+  {
+   "id": 2977075291,
+   "name": "Plaza Tol Kundang Barat",
+   "lat": 3.26964,
+   "lng": 101.518383
+  },
+  {
+   "id": 3011893874,
+   "name": "Plaza Tol Kempas",
+   "lat": 1.554284,
+   "lng": 103.701291
+  },
+  {
+   "id": 3042027897,
+   "name": "Plaza Tol Lunas",
+   "lat": 5.416921,
+   "lng": 100.530965
+  },
+  {
+   "id": 3078226155,
+   "name": "Plaza Tol Jawi",
+   "lat": 5.18684,
+   "lng": 100.489832
+  },
+  {
+   "id": 3096635875,
+   "name": "Plaza Tol Gurun",
+   "lat": 5.815404,
+   "lng": 100.488808
+  },
+  {
+   "id": 3196804520,
+   "name": "Plaza Tol Kuala Kangsar",
+   "lat": 4.768754,
+   "lng": 100.901006
+  },
+  {
+   "id": 3196804526,
+   "name": "Plaza Tol Kuala Kangsar",
+   "lat": 4.768831,
+   "lng": 100.901132
+  },
+  {
+   "id": 3221497041,
+   "name": "Plaza Tol Juru",
+   "lat": 5.323823,
+   "lng": 100.436749
+  },
+  {
+   "id": 3221497042,
+   "name": "Plaza Tol Juru",
+   "lat": 5.323754,
+   "lng": 100.436307
+  },
+  {
+   "id": 3221533532,
+   "name": "Plaza Tol Bukit Tambun Selatan",
+   "lat": 5.276727,
+   "lng": 100.456878
+  },
+  {
+   "id": 3221533533,
+   "name": "Plaza Tol Bukit Tambun Utara",
+   "lat": 5.276093,
+   "lng": 100.453164
+  },
+  {
+   "id": 3221625176,
+   "name": "Plaza Tol Bandar Cassia (B)",
+   "lat": 5.233017,
+   "lng": 100.453587
+  },
+  {
+   "id": 3221625182,
+   "name": "Plaza Tol Bandar Cassia (C)",
+   "lat": 5.233807,
+   "lng": 100.453293
+  },
+  {
+   "id": 3221625190,
+   "name": "Plaza Tol Jambatan Sultan Abdul Halim Mu'adzam Shah",
+   "lat": 5.229374,
+   "lng": 100.43652
+  },
+  {
+   "id": 3237514002,
+   "name": "Plaza Tol Changkat Jering",
+   "lat": 4.782228,
+   "lng": 100.719423
+  },
+  {
+   "id": 3237515632,
+   "name": "Plaza Tol Changkat Jering",
+   "lat": 4.782026,
+   "lng": 100.719429
+  },
+  {
+   "id": 3253694109,
+   "name": "Plaza Tol Sungai Buaya",
+   "lat": 3.373148,
+   "lng": 101.549675
+  },
+  {
+   "id": 3253694111,
+   "name": "Plaza Tol Sungai Buaya",
+   "lat": 3.372975,
+   "lng": 101.549684
+  },
+  {
+   "id": 3257642569,
+   "name": "Plaza Tol Seremban",
+   "lat": 2.715231,
+   "lng": 101.917318
+  },
+  {
+   "id": 3261376773,
+   "name": "Plaza Tol Tangkak",
+   "lat": 2.244923,
+   "lng": 102.533485
+  },
+  {
+   "id": 3261763646,
+   "name": "Plaza Tol Bukit Gambir",
+   "lat": 2.194127,
+   "lng": 102.62214
+  },
+  {
+   "id": 3261763647,
+   "name": "Plaza Tol Bukit Gambir",
+   "lat": 2.194059,
+   "lng": 102.621916
+  },
+  {
+   "id": 3262972465,
+   "name": "Plaza Tol Skudai",
+   "lat": 1.582373,
+   "lng": 103.645776
+  },
+  {
+   "id": 3369680552,
+   "name": "Plaza Tol Jawi",
+   "lat": 5.187022,
+   "lng": 100.489839
+  },
+  {
+   "id": 3488113928,
+   "name": "Plaza Tol Dungun",
+   "lat": 4.741984,
+   "lng": 103.328597
+  },
+  {
+   "id": 3978125867,
+   "name": "Plaza Tol Gombak (Kws Rehat)",
+   "lat": 3.242364,
+   "lng": 101.727145
+  },
+  {
+   "id": 4037680443,
+   "name": "Plaza Tol Puchong Barat (Arah Timur)",
+   "lat": 3.021183,
+   "lng": 101.60225
+  },
+  {
+   "id": 4037680444,
+   "name": "Plaza Tol Puchong Barat (Arah Barat)",
+   "lat": 3.020618,
+   "lng": 101.602244
+  },
+  {
+   "id": 4088947199,
+   "name": "Perai Toll Plaza",
+   "lat": 5.385686,
+   "lng": 100.385652
+  },
+  {
+   "id": 4088947202,
+   "name": "Perai Toll Plaza",
+   "lat": 5.385761,
+   "lng": 100.385046
+  },
+  {
+   "id": 4157363797,
+   "name": "Plaza Tol MEX Seri Kembangan",
+   "lat": 3.017087,
+   "lng": 101.683864
+  },
+  {
+   "id": 4225699017,
+   "name": "Plaza Tol LKSA Alam Impian (Arah Barat)",
+   "lat": 3.028177,
+   "lng": 101.522384
+  },
+  {
+   "id": 4225699018,
+   "name": "Plaza Tol LKSA Alam Impian (Arah Timur)",
+   "lat": 3.028633,
+   "lng": 101.52258
+  },
+  {
+   "id": 4225703423,
+   "name": "Plaza Tol Seri Muda (Arah Utara)",
+   "lat": 3.025074,
+   "lng": 101.530145
+  },
+  {
+   "id": 4225703424,
+   "name": "Plaza Tol Seri Muda (Arah Selatan)",
+   "lat": 3.025282,
+   "lng": 101.530535
+  },
+  {
+   "id": 4281725443,
+   "name": "Plaza Tol Tanjung Kupang",
+   "lat": 1.382456,
+   "lng": 103.59398
+  },
+  {
+   "id": 4427765312,
+   "name": "Plaza Tol Bandar Ainsdale",
+   "lat": 2.733429,
+   "lng": 101.88377
+  },
+  {
+   "id": 4427765313,
+   "name": "Plaza Tol Bandar Ainsdale",
+   "lat": 2.733528,
+   "lng": 101.884038
+  },
+  {
+   "id": 4751024234,
+   "name": "Toll plaza",
+   "lat": 3.070953,
+   "lng": 101.805943
+  },
+  {
+   "id": 4781351446,
+   "name": "Plaza Tol Lukut",
+   "lat": 2.585374,
+   "lng": 101.850618
+  },
+  {
+   "id": 4781351448,
+   "name": "Plaza Tol Lukut",
+   "lat": 2.584296,
+   "lng": 101.848848
+  },
+  {
+   "id": 4868073384,
+   "name": "Plaza Tol Pantai Dalam (U)",
+   "lat": 3.093247,
+   "lng": 101.670485
+  },
+  {
+   "id": 4868073385,
+   "name": "Plaza Tol Pantai Dalam (U)",
+   "lat": 3.09305,
+   "lng": 101.670669
+  },
+  {
+   "id": 4923062888,
+   "name": "Plaza Tol MEX Seri Kembangan",
+   "lat": 3.017136,
+   "lng": 101.683249
+  },
+  {
+   "id": 4966575453,
+   "name": "Plaza Tol Dato' Keramat",
+   "lat": 3.165632,
+   "lng": 101.72151
+  },
+  {
+   "id": 4966575454,
+   "name": "Plaza Tol Dato' Keramat",
+   "lat": 3.165242,
+   "lng": 101.721363
+  },
+  {
+   "id": 4975561262,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.107972,
+   "lng": 101.701734
+  },
+  {
+   "id": 4975561276,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.106319,
+   "lng": 101.700659
+  },
+  {
+   "id": 4975561288,
+   "name": "Plaza Toll SMART Sungai Besi",
+   "lat": 3.106124,
+   "lng": 101.700909
+  },
+  {
+   "id": 4983360622,
+   "name": "Plaza Tol Kapar (Arah Barat)",
+   "lat": 3.068371,
+   "lng": 101.420808
+  },
+  {
+   "id": 5277518212,
+   "name": "Plaza Tol Taiping Selatan",
+   "lat": 4.766551,
+   "lng": 100.726468
+  },
+  {
+   "id": 5277518213,
+   "name": "Plaza Tol Taiping Selatan",
+   "lat": 4.766702,
+   "lng": 100.726227
+  },
+  {
+   "id": 5395422652,
+   "name": "Plaza Tol Cukai",
+   "lat": 4.24018,
+   "lng": 103.304364
+  },
+  {
+   "id": 5395422653,
+   "name": "Plaza Tol Cukai",
+   "lat": 4.240161,
+   "lng": 103.304512
+  },
+  {
+   "id": 5472689700,
+   "name": "Plaza Tol Kuang Barat",
+   "lat": 3.271576,
+   "lng": 101.476193
+  },
+  {
+   "id": 5472689757,
+   "name": "Plaza Tol Ijok (Arah Timur)",
+   "lat": 3.290675,
+   "lng": 101.392965
+  },
+  {
+   "id": 5472689758,
+   "name": "Plaza Tol Ijok (Arah Barat)",
+   "lat": 3.290393,
+   "lng": 101.393097
+  },
+  {
+   "id": 5503544240,
+   "name": "Plaza Tol Batang Baram",
+   "lat": 4.5726,
+   "lng": 114.073967
+  },
+  {
+   "id": 5527272230,
+   "name": "Plaza Tol Southville City",
+   "lat": 2.907459,
+   "lng": 101.759647
+  },
+  {
+   "id": 5527272235,
+   "name": "Plaza Tol Southville City",
+   "lat": 2.907301,
+   "lng": 101.759307
+  },
+  {
+   "id": 5683721194,
+   "name": "Toll plaza",
+   "lat": 2.760162,
+   "lng": 101.698319
+  },
+  {
+   "id": 5910997492,
+   "name": "Plaza Tol Juru",
+   "lat": 5.32379,
+   "lng": 100.436532
+  },
+  {
+   "id": 5987198532,
+   "name": "Toll plaza",
+   "lat": 2.7587,
+   "lng": 101.699326
+  },
+  {
+   "id": 6048252404,
+   "name": "Toll plaza",
+   "lat": 5.356896,
+   "lng": 100.39306
+  },
+  {
+   "id": 6048252405,
+   "name": "Toll plaza",
+   "lat": 5.356796,
+   "lng": 100.392998
+  },
+  {
+   "id": 6048252406,
+   "name": "Toll plaza",
+   "lat": 5.356682,
+   "lng": 100.392931
+  },
+  {
+   "id": 6093098555,
+   "name": "Plaza Tol Bandar Serenia",
+   "lat": 2.849043,
+   "lng": 101.690064
+  },
+  {
+   "id": 6132495348,
+   "name": "Plaza Tol Senai",
+   "lat": 1.603353,
+   "lng": 103.674659
+  },
+  {
+   "id": 6132495349,
+   "name": "Plaza Tol Senai",
+   "lat": 1.603138,
+   "lng": 103.674747
+  },
+  {
+   "id": 6380251537,
+   "name": "Plaza Tol Segambut",
+   "lat": 3.190854,
+   "lng": 101.655908
+  },
+  {
+   "id": 6380251547,
+   "name": "Plaza Tol Segambut",
+   "lat": 3.19101,
+   "lng": 101.655767
+  },
+  {
+   "id": 6380251565,
+   "name": "Plaza Tol Segambut",
+   "lat": 3.189921,
+   "lng": 101.656107
+  },
+  {
+   "id": 6405579522,
+   "name": "Plaza Tol Seremban (C) Selatan",
+   "lat": 2.716496,
+   "lng": 101.914795
+  },
+  {
+   "id": 6447459833,
+   "name": "Banting (WCE)",
+   "lat": 2.866863,
+   "lng": 101.55963
+  },
+  {
+   "id": 6447459834,
+   "name": "Banting (WCE)",
+   "lat": 2.866919,
+   "lng": 101.559369
+  },
+  {
+   "id": 6477385198,
+   "name": "Plaza Tol Putrajaya",
+   "lat": 2.950091,
+   "lng": 101.65189
+  },
+  {
+   "id": 6477385199,
+   "name": "Plaza Tol Putrajaya",
+   "lat": 2.950109,
+   "lng": 101.651485
+  },
+  {
+   "id": 6493754421,
+   "name": "Plaza Tol UPM",
+   "lat": 3.000684,
+   "lng": 101.727392
+  },
+  {
+   "id": 6511778489,
+   "name": "Plaza Tol Teluk Intan",
+   "lat": 3.941568,
+   "lng": 100.993841
+  },
+  {
+   "id": 6511778490,
+   "name": "Plaza Tol Teluk Intan",
+   "lat": 3.941617,
+   "lng": 100.993997
+  },
+  {
+   "id": 6511778495,
+   "name": "Plaza Tol Hutan Melintang",
+   "lat": 3.824217,
+   "lng": 101.000471
+  },
+  {
+   "id": 6511778496,
+   "name": "Plaza Tol Hutan Melintang",
+   "lat": 3.824214,
+   "lng": 101.000646
+  },
+  {
+   "id": 6554481853,
+   "name": "Plaza Tol Mines Utara",
+   "lat": 3.055079,
+   "lng": 101.707292
+  },
+  {
+   "id": 6567017399,
+   "name": "Plaza Tol Setul",
+   "lat": 2.770709,
+   "lng": 101.915895
+  },
+  {
+   "id": 6567017400,
+   "name": "Plaza Tol Setul",
+   "lat": 2.770712,
+   "lng": 101.915616
+  },
+  {
+   "id": 6567091656,
+   "name": "Plaza Tol Eco Majestic",
+   "lat": 2.894643,
+   "lng": 101.832204
+  },
+  {
+   "id": 6567091657,
+   "name": "Plaza Tol Eco Majestic",
+   "lat": 2.894351,
+   "lng": 101.832231
+  },
+  {
+   "id": 6567402171,
+   "name": "Plaza Tol Pulau Indah",
+   "lat": 2.904808,
+   "lng": 101.339891
+  },
+  {
+   "id": 6567402172,
+   "name": "Plaza Tol Pulau Indah",
+   "lat": 2.904926,
+   "lng": 101.340043
+  },
+  {
+   "id": 6568992696,
+   "name": "Plaza Tol Pantai (B)",
+   "lat": 3.131266,
+   "lng": 101.661386
+  },
+  {
+   "id": 6569017599,
+   "name": "Plaza Tol Pantai (A)",
+   "lat": 3.12911,
+   "lng": 101.661901
+  },
+  {
+   "id": 6569027651,
+   "name": "Plaza Tol Pantai (A)",
+   "lat": 3.129102,
+   "lng": 101.661821
+  },
+  {
+   "id": 6569053055,
+   "name": "Plaza Tol Hospital Sungai Buloh",
+   "lat": 3.222954,
+   "lng": 101.580663
+  },
+  {
+   "id": 6569526771,
+   "name": "Segambut Toll Plaza",
+   "lat": 3.190476,
+   "lng": 101.655474
+  },
+  {
+   "id": 6569526772,
+   "name": "Segambut Toll Plaza",
+   "lat": 3.190256,
+   "lng": 101.655543
+  },
+  {
+   "id": 6572134328,
+   "name": "Plaza Tol Bandar Serenia",
+   "lat": 2.848862,
+   "lng": 101.690187
+  },
+  {
+   "id": 6698464345,
+   "name": "Plaza Tol UPM",
+   "lat": 3.000657,
+   "lng": 101.727939
+  },
+  {
+   "id": 6783575990,
+   "name": "Plaza Tol Alam Damai (A2)",
+   "lat": 3.074985,
+   "lng": 101.738233
+  },
+  {
+   "id": 6804830539,
+   "name": "Plaza Tol Segambut",
+   "lat": 3.190095,
+   "lng": 101.655998
+  },
+  {
+   "id": 6901553778,
+   "name": "Plaza Tol Bandar Gamuda Cove",
+   "lat": 2.882873,
+   "lng": 101.624411
+  },
+  {
+   "id": 6901553779,
+   "name": "Plaza Tol Bandar Gamuda Cove",
+   "lat": 2.882992,
+   "lng": 101.624586
+  },
+  {
+   "id": 6975864618,
+   "name": "Plaza Tol Wangsa Maju",
+   "lat": 3.202464,
+   "lng": 101.735594
+  },
+  {
+   "id": 6979273330,
+   "name": "Plaza Tol Denai Alam",
+   "lat": 3.148569,
+   "lng": 101.501468
+  },
+  {
+   "id": 6979273351,
+   "name": "Plaza Tol Denai Alam",
+   "lat": 3.148924,
+   "lng": 101.501422
+  },
+  {
+   "id": 7099646041,
+   "name": "Plaza Tol Sungai Nyior",
+   "lat": 5.405636,
+   "lng": 100.381277
+  },
+  {
+   "id": 7099646042,
+   "name": "Plaza Tol Sungai Nyior",
+   "lat": 5.405762,
+   "lng": 100.38224
+  },
+  {
+   "id": 7152214166,
+   "name": "Plaza Tol Kota Damansara (DASH)",
+   "lat": 3.157615,
+   "lng": 101.59655
+  },
+  {
+   "id": 7175400693,
+   "name": "Toll plaza",
+   "lat": 2.216399,
+   "lng": 102.244154
+  },
+  {
+   "id": 7182672081,
+   "name": "Toll plaza",
+   "lat": 1.58194,
+   "lng": 103.646501
+  },
+  {
+   "id": 7188218824,
+   "name": "Plaza Tol Seremban",
+   "lat": 2.714272,
+   "lng": 101.916013
+  },
+  {
+   "id": 7188342738,
+   "name": "Lorong Tol Berlapis GCE Bukit Jelutong",
+   "lat": 3.122783,
+   "lng": 101.528753
+  },
+  {
+   "id": 7188747967,
+   "name": "Plaza Tol Kempas",
+   "lat": 1.554639,
+   "lng": 103.700683
+  },
+  {
+   "id": 7188750973,
+   "name": "Plaza Tol Kempas",
+   "lat": 1.553781,
+   "lng": 103.701707
+  },
+  {
+   "id": 7191693378,
+   "name": "Toll plaza",
+   "lat": 2.216297,
+   "lng": 102.244378
+  },
+  {
+   "id": 7199882534,
+   "name": "Plaza Tol Ampang (B)",
+   "lat": 3.14509,
+   "lng": 101.770353
+  },
+  {
+   "id": 7223324450,
+   "name": "Plaza Tol Ayer Panas",
+   "lat": 3.185844,
+   "lng": 101.713327
+  },
+  {
+   "id": 7245886263,
+   "name": "Plaza Tol Sentul Pasar",
+   "lat": 3.195679,
+   "lng": 101.69998
+  },
+  {
+   "id": 7261463941,
+   "name": "Plaza Tol Pantai (B)",
+   "lat": 3.131244,
+   "lng": 101.661319
+  },
+  {
+   "id": 7361601176,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082362,
+   "lng": 100.374183
+  },
+  {
+   "id": 7361601179,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082463,
+   "lng": 100.374147
+  },
+  {
+   "id": 7361601180,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082513,
+   "lng": 100.374128
+  },
+  {
+   "id": 7361601181,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082554,
+   "lng": 100.374114
+  },
+  {
+   "id": 7361601182,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082604,
+   "lng": 100.374096
+  },
+  {
+   "id": 7361601183,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082662,
+   "lng": 100.374075
+  },
+  {
+   "id": 7464766527,
+   "name": "Plaza Tol Kijal",
+   "lat": 4.376433,
+   "lng": 103.362626
+  },
+  {
+   "id": 7464766528,
+   "name": "Plaza Tol Kijal",
+   "lat": 4.376409,
+   "lng": 103.362772
+  },
+  {
+   "id": 7717172592,
+   "name": "Alam Damai Toll Plaza B1",
+   "lat": 3.073371,
+   "lng": 101.741585
+  },
+  {
+   "id": 7717172607,
+   "name": "Alam Damai Toll Plaza B2",
+   "lat": 3.073275,
+   "lng": 101.741376
+  },
+  {
+   "id": 7717172724,
+   "name": "Plaza Tol Bukit Teratai",
+   "lat": 3.100614,
+   "lng": 101.760519
+  },
+  {
+   "id": 7717172725,
+   "name": "Plaza Tol Bukit Teratai",
+   "lat": 3.100432,
+   "lng": 101.760769
+  },
+  {
+   "id": 7744489390,
+   "name": "Plaza Tol Hutan Kampung",
+   "lat": 6.160129,
+   "lng": 100.405826
+  },
+  {
+   "id": 7744489391,
+   "name": "Plaza Tol Hutan Kampung",
+   "lat": 6.160172,
+   "lng": 100.405609
+  },
+  {
+   "id": 7744491414,
+   "name": "Plaza Tol Pendang",
+   "lat": 5.978264,
+   "lng": 100.44417
+  },
+  {
+   "id": 7744491415,
+   "name": "Plaza Tol Pendang",
+   "lat": 5.978168,
+   "lng": 100.44407
+  },
+  {
+   "id": 7744506528,
+   "name": "Plaza Tol Jitra",
+   "lat": 6.252162,
+   "lng": 100.435287
+  },
+  {
+   "id": 7744506529,
+   "name": "Plaza Tol Jitra",
+   "lat": 6.252143,
+   "lng": 100.435136
+  },
+  {
+   "id": 7744522757,
+   "name": "Plaza Tol Alor Setar Utara",
+   "lat": 6.138223,
+   "lng": 100.394125
+  },
+  {
+   "id": 7744522758,
+   "name": "Plaza Tol Alor Setar Utara",
+   "lat": 6.138069,
+   "lng": 100.394073
+  },
+  {
+   "id": 7744841237,
+   "name": "Plaza Tol Bandar Baru",
+   "lat": 5.108117,
+   "lng": 100.55368
+  },
+  {
+   "id": 7744841238,
+   "name": "Plaza Tol Bandar Baru",
+   "lat": 5.108189,
+   "lng": 100.553713
+  },
+  {
+   "id": 7744847281,
+   "name": "Plaza Tol Alor Pongsu",
+   "lat": 5.06834,
+   "lng": 100.594453
+  },
+  {
+   "id": 7744847282,
+   "name": "Plaza Tol Alor Pongsu",
+   "lat": 5.068546,
+   "lng": 100.594476
+  },
+  {
+   "id": 7761810017,
+   "name": "Plaza Tol Dungun",
+   "lat": 4.741837,
+   "lng": 103.328664
+  },
+  {
+   "id": 7768170886,
+   "name": "Beruas Toll Beruas",
+   "lat": 4.496179,
+   "lng": 100.796416
+  },
+  {
+   "id": 7768170887,
+   "name": "Beruas Toll Beruas",
+   "lat": 4.496183,
+   "lng": 100.79626
+  },
+  {
+   "id": 7770488479,
+   "name": "Plaza Tol NNKSB2",
+   "lat": 3.094299,
+   "lng": 101.437571
+  },
+  {
+   "id": 7770488480,
+   "name": "Plaza Tol NNKSB2",
+   "lat": 3.093895,
+   "lng": 101.437378
+  },
+  {
+   "id": 7770488481,
+   "name": "Bandar Bukit Raja Utara",
+   "lat": 3.130351,
+   "lng": 101.398044
+  },
+  {
+   "id": 7770488482,
+   "name": "Bandar Bukit Raja Utara",
+   "lat": 3.130234,
+   "lng": 101.397853
+  },
+  {
+   "id": 7770531560,
+   "name": "Plaza Tol Kundang Timur",
+   "lat": 3.271589,
+   "lng": 101.508293
+  },
+  {
+   "id": 7773386065,
+   "name": "Plaza Tol Sitiawan",
+   "lat": 4.18184,
+   "lng": 100.7366
+  },
+  {
+   "id": 7773386073,
+   "name": "Plaza Tol Sitiawan",
+   "lat": 4.18155,
+   "lng": 100.736634
+  },
+  {
+   "id": 7911238516,
+   "name": "Plaza Tol Lembah Beringin",
+   "lat": 3.574083,
+   "lng": 101.527396
+  },
+  {
+   "id": 7958754879,
+   "name": "Plaza Tol Alor Setar Selatan",
+   "lat": 6.082412,
+   "lng": 100.374166
+  },
+  {
+   "id": 7964730169,
+   "name": "Toll plaza",
+   "lat": 3.074666,
+   "lng": 101.421432
+  },
+  {
+   "id": 8070726969,
+   "name": "Plaza Tol Ampang",
+   "lat": 3.150687,
+   "lng": 101.788569
+  },
+  {
+   "id": 8070726970,
+   "name": "Plaza Tol Ampang",
+   "lat": 3.150483,
+   "lng": 101.788657
+  },
+  {
+   "id": 8070727142,
+   "name": "Plaza Tol Ampang (A)",
+   "lat": 3.147392,
+   "lng": 101.765961
+  },
+  {
+   "id": 8076756359,
+   "name": "Plaza Tol RRIM (Kwasa Damansara)",
+   "lat": 3.150252,
+   "lng": 101.564528
+  },
+  {
+   "id": 8076756411,
+   "name": "Plaza Tol Kota Damansara (DASH)",
+   "lat": 3.157325,
+   "lng": 101.596619
+  },
+  {
+   "id": 8076756715,
+   "name": "Plaza Tol RRIM (Kwasa Damansara)",
+   "lat": 3.149805,
+   "lng": 101.564048
+  },
+  {
+   "id": 8121234484,
+   "name": "Plaza Tol Wangsa Maju",
+   "lat": 3.202298,
+   "lng": 101.735442
+  },
+  {
+   "id": 8237593093,
+   "name": "Toll plaza",
+   "lat": 3.071088,
+   "lng": 101.805885
+  },
+  {
+   "id": 9152085337,
+   "name": "Toll plaza",
+   "lat": 1.543314,
+   "lng": 103.802055
+  },
+  {
+   "id": 9517874527,
+   "name": "Plaza Tol Setiawangsa (S)",
+   "lat": 3.181263,
+   "lng": 101.738371
+  },
+  {
+   "id": 9543285385,
+   "name": "Plaza Tol Sungai Long",
+   "lat": 3.049834,
+   "lng": 101.815333
+  },
+  {
+   "id": 9543285386,
+   "name": "Plaza Tol Sungai Long",
+   "lat": 3.049904,
+   "lng": 101.81511
+  },
+  {
+   "id": 9543285387,
+   "name": "Toll plaza",
+   "lat": 3.201566,
+   "lng": 101.78919
+  },
+  {
+   "id": 9543285388,
+   "name": "Toll plaza",
+   "lat": 3.201535,
+   "lng": 101.788971
+  },
+  {
+   "id": 9892447324,
+   "name": "Toll plaza",
+   "lat": 6.667491,
+   "lng": 100.200806
+  },
+  {
+   "id": 9906071209,
+   "name": "Gohtong Jaya Entry",
+   "lat": 3.398855,
+   "lng": 101.770011
+  },
+  {
+   "id": 9971478704,
+   "name": "Plaza Tol Bukit Tambun Selatan",
+   "lat": 5.276781,
+   "lng": 100.456975
+  },
+  {
+   "id": 9971478710,
+   "name": "Plaza Tol Bukit Tambun Utara",
+   "lat": 5.276153,
+   "lng": 100.453294
+  },
+  {
+   "id": 10089329227,
+   "name": "Toll plaza",
+   "lat": 6.065656,
+   "lng": 116.565531
+  },
+  {
+   "id": 10542514367,
+   "name": "Plaza Tol Changkat Cermin",
+   "lat": 4.343057,
+   "lng": 100.80205
+  },
+  {
+   "id": 10542514368,
+   "name": "Plaza Tol Changkat Cermin",
+   "lat": 4.343142,
+   "lng": 100.801932
+  },
+  {
+   "id": 10542514369,
+   "name": "Plaza Tol Sitiawan Utara",
+   "lat": 4.247838,
+   "lng": 100.729572
+  },
+  {
+   "id": 10542514370,
+   "name": "Plaza Tol Sitiawan Utara",
+   "lat": 4.248088,
+   "lng": 100.729585
+  },
+  {
+   "id": 10542514371,
+   "name": "Plaza Tol Lekir",
+   "lat": 4.143578,
+   "lng": 100.768589
+  },
+  {
+   "id": 10542514372,
+   "name": "Plaza Tol Lekir",
+   "lat": 4.143448,
+   "lng": 100.768491
+  },
+  {
+   "id": 10603590904,
+   "name": "Plaza Tol Setiawangsa (U)",
+   "lat": 3.180029,
+   "lng": 101.737494
+  },
+  {
+   "id": 10798859857,
+   "name": "Plaza Tol SAE/KESAS",
+   "lat": 2.985999,
+   "lng": 101.491951
+  },
+  {
+   "id": 10798859858,
+   "name": "Plaza Tol SAE/KESAS",
+   "lat": 2.985913,
+   "lng": 101.49171
+  },
+  {
+   "id": 10816474340,
+   "name": "Plaza Tol Alam Damai (A1)",
+   "lat": 3.074906,
+   "lng": 101.738177
+  },
+  {
+   "id": 11050377500,
+   "name": "Toll plaza",
+   "lat": 3.009475,
+   "lng": 101.487448
+  },
+  {
+   "id": 11050412507,
+   "name": "Toll plaza",
+   "lat": 3.009263,
+   "lng": 101.486987
+  },
+  {
+   "id": 11237861597,
+   "name": "Alam Damai Toll Plaza B3",
+   "lat": 3.073209,
+   "lng": 101.741413
+  },
+  {
+   "id": 11254256983,
+   "name": "Plaza Tol Batu Tambahan",
+   "lat": 3.192619,
+   "lng": 101.674278
+  },
+  {
+   "id": 11311071072,
+   "name": "Plaza Tol Chan Sow Lin",
+   "lat": 3.128453,
+   "lng": 101.717018
+  },
+  {
+   "id": 11311071073,
+   "name": "Plaza Tol Chan Sow Lin",
+   "lat": 3.128494,
+   "lng": 101.716954
+  },
+  {
+   "id": 11311071074,
+   "name": "Toll plaza",
+   "lat": 3.164264,
+   "lng": 101.734242
+  },
+  {
+   "id": 11311071075,
+   "name": "Toll plaza",
+   "lat": 3.164055,
+   "lng": 101.736654
+  },
+  {
+   "id": 11311097428,
+   "name": "WCE Assam Jawa Toll Plaza (Inbound)",
+   "lat": 3.313373,
+   "lng": 101.373954
+  },
+  {
+   "id": 11311097429,
+   "name": "WCE Assam Jawa Toll Plaza (Outbound)",
+   "lat": 3.313386,
+   "lng": 101.373646
+  },
+  {
+   "id": 11536356942,
+   "name": "Toll plaza",
+   "lat": 2.214388,
+   "lng": 102.245676
+  },
+  {
+   "id": 11536356943,
+   "name": "Toll plaza",
+   "lat": 2.214193,
+   "lng": 102.245642
+  },
+  {
+   "id": 11551160447,
+   "name": "Toll plaza",
+   "lat": 2.213595,
+   "lng": 102.247744
+  },
+  {
+   "id": 11553675587,
+   "name": "Toll plaza",
+   "lat": 2.214093,
+   "lng": 102.247707
+  },
+  {
+   "id": 11733311479,
+   "name": "Plaza Tol Trong",
+   "lat": 4.697801,
+   "lng": 100.723445
+  },
+  {
+   "id": 11733311480,
+   "name": "Plaza Tol Trong",
+   "lat": 4.69793,
+   "lng": 100.723487
+  },
+  {
+   "id": 11939832104,
+   "name": "Plaza Tol Alam Damai (A3)",
+   "lat": 3.07511,
+   "lng": 101.738211
+  },
+  {
+   "id": 12696022387,
+   "name": "Plaza Tol Batu 9 (A)",
+   "lat": 3.074667,
+   "lng": 101.760588
+  },
+  {
+   "id": 12912162449,
+   "name": "Plaza Tol Rawang Selatan (Plaza 'A')",
+   "lat": 3.274437,
+   "lng": 101.550258
+  },
+  {
+   "id": 13104113830,
+   "name": "Toll plaza",
+   "lat": 3.093565,
+   "lng": 101.804816
+  },
+  {
+   "id": 13104113831,
+   "name": "Toll plaza",
+   "lat": 3.093367,
+   "lng": 101.804872
+  },
+  {
+   "id": 13278358605,
+   "name": "Plaza Tol Jalan Duta",
+   "lat": 3.175752,
+   "lng": 101.65576
+  },
+  {
+   "id": 13298702024,
+   "name": "Plaza Tol Eco Grandeur",
+   "lat": 3.281846,
+   "lng": 101.424666
+  },
+  {
+   "id": 13298702025,
+   "name": "Plaza Tol Eco Grandeur",
+   "lat": 3.281945,
+   "lng": 101.424518
+  },
+  {
+   "id": 13462675806,
+   "name": "Tol Bangunan Sultan Iskandar",
+   "lat": 1.465134,
+   "lng": 103.767248
+  },
+  {
+   "id": 13462675807,
+   "name": "Tol Bangunan Sultan Iskandar",
+   "lat": 1.465088,
+   "lng": 103.76471
+  }
+ ]
+}

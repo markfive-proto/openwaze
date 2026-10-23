@@ -65,7 +65,7 @@ struct DestinationCard: View {
 /// preview, arrived, failed.
 struct TripCard: View {
     let navigator: Navigator
-    /// Route uses toll roads; nil hides the badge until the router reports it (#30).
+    /// Route passes a toll plaza (`Tolls.plazas`); nil hides the badge until matched (#30).
     var tolls: Bool?
     let onStart: () -> Void
     let onRetry: () -> Void
