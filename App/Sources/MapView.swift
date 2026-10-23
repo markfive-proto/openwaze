@@ -100,6 +100,17 @@ struct MapView: UIViewRepresentable {
         }
     }
 
+    /// Gaps under this are hidden by the pin and the route's round cap.
+    static let minConnectorGap = 5.0 // metres
+
+    /// The dashed line from the route's last coordinate to the destination
+    /// pin, or nil when there is nothing to join or the gap is too small to see.
+    static func connector(route: Route?, to destination: CLLocationCoordinate2D?) -> [CLLocationCoordinate2D]? {
+        guard let end = route?.coordinates.last, let destination,
+              Geo.distance(end, destination) >= minConnectorGap else { return nil }
+        return [end, destination]
+    }
+
     /// Replaces the destination pin, leaving report icons alone.
     static func pin(_ destination: Destination?, on map: MLNMapView) {
         map.removeAnnotations((map.annotations ?? []).filter { !($0 is ReportAnnotation) })
@@ -135,25 +146,44 @@ struct MapView: UIViewRepresentable {
             drawRoute(on: mapView) // a route may arrive before the style
         }
 
-        /// Puts the current route (or nothing) in a line layer under the labels.
+        /// Puts the current route (or nothing) in a line layer under the labels,
+        /// plus a dashed connector from the route's end to the destination pin
+        /// when OSRM snapped the end to a road some way off.
         func drawRoute(on map: MLNMapView) {
             guard let style = map.style else { return }
-            // MapLibre throws on an empty polyline, so no route means no shape.
-            let shape = route.map { route in
-                var line = route.coordinates
+            draw(route?.coordinates, as: "route", on: style) { layer in
+                layer.lineColor = NSExpression(forConstantValue: UIColor(Theme.accentFill))
+                layer.lineWidth = NSExpression(forConstantValue: 7)
+                layer.lineCap = NSExpression(forConstantValue: "round")
+            }
+            let connector = MapView.connector(route: route, to: shown.destination?.coordinate)
+            draw(connector, as: "connector", on: style) { layer in
+                layer.lineColor = NSExpression(forConstantValue: UIColor(Theme.neutralFill))
+                layer.lineWidth = NSExpression(forConstantValue: 3)
+                layer.lineDashPattern = NSExpression(forConstantValue: [1, 2])
+            }
+        }
+
+        /// Sets `line` on the shape source `id`, creating it and its layer
+        /// (styled by `configure`) under the labels the first time.
+        private func draw(
+            _ line: [CLLocationCoordinate2D]?, as id: String, on style: MLNStyle,
+            configure: (MLNLineStyleLayer) -> Void
+        ) {
+            // MapLibre throws on an empty polyline, so no line means no shape.
+            let shape = line.map { line in
+                var line = line
                 return MLNPolylineFeature(coordinates: &line, count: UInt(line.count))
             }
-            if let source = style.source(withIdentifier: "route") as? MLNShapeSource {
+            if let source = style.source(withIdentifier: id) as? MLNShapeSource {
                 source.shape = shape
                 return
             }
-            let source = MLNShapeSource(identifier: "route", shape: shape, options: nil)
+            let source = MLNShapeSource(identifier: id, shape: shape, options: nil)
             style.addSource(source)
-            let layer = MLNLineStyleLayer(identifier: "route", source: source)
-            layer.lineColor = NSExpression(forConstantValue: UIColor(Theme.accentFill))
-            layer.lineWidth = NSExpression(forConstantValue: 7)
-            layer.lineCap = NSExpression(forConstantValue: "round")
+            let layer = MLNLineStyleLayer(identifier: id, source: source)
             layer.lineJoin = NSExpression(forConstantValue: "round")
+            configure(layer)
             if let labels = style.layers.first(where: { $0 is MLNSymbolStyleLayer }) {
                 style.insertLayer(layer, below: labels)
             } else {
