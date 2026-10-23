@@ -42,6 +42,8 @@ struct HomeView: View {
     @State private var toast: String?
     /// Bumped after a report is accepted, for the success haptic.
     @State private var reported = 0
+    /// The previewed route passes a toll plaza (#30); recomputed per route, not per render.
+    @State private var tolls: Bool?
 
     init(context: ModelContext, storeFailed: Bool) {
         let location = LocationAuthorization()
@@ -113,6 +115,9 @@ struct HomeView: View {
             }
         }
         .onChange(of: navigator.progress) { askAboutReportAhead() }
+        .onChange(of: navigator.route?.id, initial: true) {
+            tolls = navigator.route.map { !Tolls.plazas(on: $0.coordinates).isEmpty }
+        }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
                 reports.start()
@@ -231,7 +236,8 @@ struct HomeView: View {
                 NavigationBar(progress: progress, onEnd: model.endTrip)
             }
         case .trip:
-            TripCard(navigator: navigator, onStart: model.start, onRetry: model.retry, onClose: model.closeTrip)
+            TripCard(navigator: navigator, tolls: tolls,
+                     onStart: model.start, onRetry: model.retry, onClose: model.closeTrip)
         case let .place(destination):
             DestinationCard(
                 destination: destination, onGo: model.go,
