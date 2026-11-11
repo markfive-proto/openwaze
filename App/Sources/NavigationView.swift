@@ -100,6 +100,28 @@ struct TripCard: View {
         .padding(.horizontal, Theme.Space.medium)
     }
 
+    /// One chip per route (up to 3): time and distance, the chosen one filled.
+    @ViewBuilder private var choices: some View {
+        if navigator.alternatives.count > 1 {
+            HStack(spacing: Theme.Space.small) {
+                ForEach(Array(navigator.alternatives.enumerated()), id: \.element.id) { index, route in
+                    let chosen = route.id == navigator.route?.id
+                    Button { navigator.select(index) } label: {
+                        VStack(spacing: 2) {
+                            Text(Format.duration(route.eta)).font(.headline)
+                            Text(Format.distance(route.distance)).font(.caption)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: Theme.tap)
+                        .foregroundStyle(chosen ? Color.white : Color.primary)
+                        .background(chosen ? Theme.accentFill : Color.secondary.opacity(0.15), in: Capsule())
+                    }
+                    .accessibilityAddTraits(chosen ? .isSelected : [])
+                }
+            }
+            .padding(.trailing, Theme.Space.large)
+        }
+    }
+
     @ViewBuilder private var preview: some View {
         if let progress = navigator.progress {
             HStack(alignment: .top, spacing: 0) {
@@ -122,6 +144,7 @@ struct TripCard: View {
                 }
                 CloseButton(action: onClose)
             }
+            choices
             Button(action: onStart) {
                 Label("Start", systemImage: "location.north.fill")
             }
@@ -237,6 +260,28 @@ struct ManeuverBanner: View {
         .shadow(color: Theme.shadow, radius: 16, y: 6)
         .padding(.horizontal, Theme.Space.medium)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// "Faster route, saves 4 min": switch or keep going.
+struct FasterRouteCard: View {
+    let saves: Double
+    let onSwitch: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Space.medium) {
+            Text("Faster route found").font(.headline)
+            Text("Saves \(Format.duration(saves))").font(.subheadline).foregroundStyle(.secondary)
+            HStack(spacing: Theme.Space.medium) {
+                Button("Switch", action: onSwitch).buttonStyle(PrimaryButtonStyle())
+                Button("Keep current", action: onDismiss).frame(minHeight: Theme.tap)
+            }
+        }
+        .padding(Theme.Space.large)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .card()
+        .padding(.horizontal, Theme.Space.medium)
     }
 }
 

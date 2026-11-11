@@ -45,7 +45,8 @@ struct HomeView: View {
 
     init(context: ModelContext, storeFailed: Bool) {
         let location = LocationAuthorization()
-        let model = HomeModel(navigator: Navigator(), context: context, origin: { location.coordinate })
+        let navigator = Navigator(traffic: Traffic.live)
+        let model = HomeModel(navigator: navigator, context: context, origin: { location.coordinate })
         if storeFailed {
             model.problem = String(localized: "Saved places couldn't be opened. Changes won't be kept.")
         }
@@ -136,6 +137,12 @@ struct HomeView: View {
             if let step = navigator.nextStep, let progress = navigator.progress {
                 ManeuverBanner(step: step, distance: progress.distanceToManeuver)
                     .transition(Theme.slide(.top, reduceMotion: reduceMotion))
+            }
+            if let offer = navigator.faster {
+                FasterRouteCard(
+                    saves: offer.saves, onSwitch: navigator.acceptFaster, onDismiss: navigator.dismissFaster
+                )
+                .transition(Theme.slide(.top, reduceMotion: reduceMotion))
             }
             if let prompt {
                 StillThereCard(report: prompt) { answer(prompt, stillThere: $0) }

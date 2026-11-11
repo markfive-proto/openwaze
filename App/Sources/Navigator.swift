@@ -2,6 +2,13 @@ import CoreLocation
 
 /// Drives a trip: fetch a route, preview it, then guide along it with
 /// spoken prompts, rerouting when the driver leaves it.
+/// A route found while driving that beats the current one.
+struct FasterRoute {
+    let route: Route
+    /// Seconds saved over staying on the current route.
+    let saves: Double
+}
+
 @MainActor
 @Observable
 final class Navigator {
@@ -10,15 +17,25 @@ final class Navigator {
         case failed(String)
     }
 
-    typealias FetchRoute = (CLLocationCoordinate2D, CLLocationCoordinate2D) async throws -> Route
+    typealias Offer = FasterRoute
+    typealias FetchRoutes = (CLLocationCoordinate2D, CLLocationCoordinate2D) async throws -> [Route]
     typealias Sleep = (TimeInterval) async throws -> Void
+
+    /// How often a trip looks for a faster route.
+    static let recheckInterval: TimeInterval = 120
+    /// A faster route is offered only if it saves at least this many seconds.
+    static let minSaving: TimeInterval = 60
 
     private(set) var phase = Phase.idle
     private(set) var route: Route?
+    /// The routes to pick from in preview, fastest first; `route` is one of them.
+    private(set) var alternatives: [Route] = []
     private(set) var progress: RouteProgress?
     private(set) var destination: Destination?
+    private(set) var faster: Offer?
 
-    @ObservationIgnored private let fetchRoute: FetchRoute
+    @ObservationIgnored private let fetchRoutes: FetchRoutes
+    @ObservationIgnored private let traffic: Traffic.Fetch?
     @ObservationIgnored private let speech: Speaking
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private let sleep: Sleep
@@ -32,18 +49,25 @@ final class Navigator {
     @ObservationIgnored private var greeted = false
     @ObservationIgnored private var offRoute = Guidance.OffRouteTimer()
     @ObservationIgnored private var rerouting = false
+    @ObservationIgnored private var checking = false
     @ObservationIgnored private var lastFix: CLLocation?
     /// The latest background job (delayed recheck or reroute); tests await it.
     @ObservationIgnored private(set) var work: Task<Void, Never>?
+    /// The latest faster-route check; tests await it.
+    @ObservationIgnored private(set) var check: Task<Void, Never>?
+    @ObservationIgnored private var nextCheck = Date.distantFuture
+    @ObservationIgnored private var previewOrigin: CLLocationCoordinate2D?
 
     init(
-        fetchRoute: @escaping FetchRoute = { try await Router.route(from: $0, to: $1) },
+        fetchRoutes: @escaping FetchRoutes = { try await Router.routes(from: $0, to: $1) },
+        traffic: Traffic.Fetch? = nil,
         speech: Speaking = Speech(),
         now: @escaping () -> Date = Date.init,
         sleep: @escaping Sleep = { try await Task.sleep(for: .seconds($0)) },
         feed: LocationFeed? = LocationFeed()
     ) {
-        self.fetchRoute = fetchRoute
+        self.fetchRoutes = fetchRoutes
+        self.traffic = traffic
         self.speech = speech
         self.now = now
         self.sleep = sleep
@@ -61,6 +85,9 @@ final class Navigator {
         let trip = trip
         self.destination = destination
         route = nil
+        alternatives = []
+        faster = nil
+        previewOrigin = nil
         progress = nil
         guard let origin else {
             phase = .failed(String(localized: "Current location unavailable"))
@@ -68,9 +95,11 @@ final class Navigator {
         }
         phase = .routing
         do {
-            let found = try await fetchRoute(origin, destination.coordinate)
-            guard trip == self.trip else { return } // a newer trip or End won
-            use(found, at: origin)
+            let found = try await bestFirst(fetchRoutes(origin, destination.coordinate))
+            guard trip == self.trip, let best = found.first else { return } // a newer trip or End won
+            alternatives = found
+            previewOrigin = origin
+            use(best, at: origin)
             phase = .preview
         } catch {
             guard trip == self.trip else { return }
@@ -80,12 +109,20 @@ final class Navigator {
         }
     }
 
+    /// Picks one of the previewed routes.
+    func select(_ index: Int) {
+        guard phase == .preview, alternatives.indices.contains(index), let origin = previewOrigin else { return }
+        use(alternatives[index], at: origin)
+    }
+
     func start() {
         guard phase == .preview else { return }
         phase = .navigating
         spoken = []
         greeted = false
         offRoute.reset()
+        alternatives = []
+        nextCheck = now().addingTimeInterval(Self.recheckInterval)
         feed?.start { [weak self] location in
             MainActor.assumeIsolated { self?.update(location) }
         }
@@ -96,6 +133,12 @@ final class Navigator {
         feed?.stop()
         work?.cancel()
         work = nil
+        check?.cancel()
+        check = nil
+        checking = false
+        faster = nil
+        alternatives = []
+        nextCheck = .distantFuture
         rerouting = false
         lastFix = nil
         speech.stop()
@@ -115,6 +158,7 @@ final class Navigator {
             arrive(route)
             return
         }
+        checkForFasterRoute(from: location)
         let onRoute = current.offRouteBy <= Guidance.offRouteDistance
         // A vague fix (urban canyon, tunnel exit) can't say we left the road.
         guard location.horizontalAccuracy <= Guidance.maxFixAccuracy else {
@@ -143,6 +187,9 @@ final class Navigator {
         phase = .arrived
         feed?.stop()
         work?.cancel()
+        check?.cancel()
+        checking = false
+        faster = nil
         if let last = route.steps.last {
             speech.say(Instruction.text(for: last), key: PromptKey(route: routeVersion, step: route.steps.count))
         }
@@ -172,9 +219,9 @@ final class Navigator {
             var attempt = 0
             while let self, trip == self.trip {
                 do {
-                    let found = try await fetchRoute(origin, destination.coordinate)
-                    guard trip == self.trip, phase == .navigating else { return }
-                    use(found, at: origin)
+                    let found = try await bestFirst(fetchRoutes(origin, destination.coordinate))
+                    guard trip == self.trip, phase == .navigating, let best = found.first else { return }
+                    use(best, at: origin)
                     rerouting = false
                     return
                 } catch {
@@ -193,8 +240,54 @@ final class Navigator {
         }
     }
 
+    /// Every 2 minutes of driving (counted on the fixes that arrive), look for
+    /// a route that saves a minute or more, and offer it. At most one request
+    /// is in flight; the answer is dropped if the trip ended or the route changed.
+    private func checkForFasterRoute(from fix: CLLocation) {
+        guard !checking, !rerouting, offRoute.since == nil, now() >= nextCheck,
+              fix.horizontalAccuracy <= Guidance.maxFixAccuracy, let destination, let current = route
+        else { return }
+        checking = true
+        nextCheck = now().addingTimeInterval(Self.recheckInterval)
+        let (trip, version, origin) = (trip, routeVersion, fix.coordinate)
+        check = Task { [weak self] in
+            // The current route rides along so both are priced with the same fresh traffic.
+            let found = try? await self?.fetchRoutes(origin, destination.coordinate)
+            guard let self, let found, !found.isEmpty else {
+                if let self, trip == self.trip {
+                    checking = false
+                }
+                return
+            }
+            let priced = await Traffic.adjusted([current] + found, using: traffic)
+            guard trip == self.trip else { return } // ended or restarted; end() reset the flag
+            checking = false
+            guard version == routeVersion, phase == .navigating, let repriced = priced.first,
+                  let best = priced.dropFirst().min(by: { $0.eta < $1.eta }) else { return }
+            let remaining = Guidance.progress(on: repriced, at: origin, from: progress?.segment ?? 0)?
+                .remainingDuration ?? repriced.eta
+            let saves = remaining - best.eta
+            faster = saves >= Self.minSaving ? Offer(route: best, saves: saves) : nil
+        }
+    }
+
+    /// Takes the offered route, from where the driver is now.
+    func acceptFaster() {
+        guard phase == .navigating, let offer = faster, let fix = lastFix else { return }
+        use(offer.route, at: fix.coordinate)
+    }
+
+    func dismissFaster() {
+        faster = nil
+    }
+
+    private func bestFirst(_ routes: [Route]) async -> [Route] {
+        await Traffic.fastestFirst(routes, using: traffic)
+    }
+
     private func use(_ found: Route, at origin: CLLocationCoordinate2D) {
         route = found
+        faster = nil
         routeVersion += 1
         progress = Guidance.progress(on: found, at: origin)
         spoken = []

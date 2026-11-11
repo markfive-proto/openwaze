@@ -69,11 +69,13 @@ enum Guidance {
     }
 
     /// Whole steps still ahead, plus the unfinished share of the current one.
+    /// Scaled up by the route's traffic delay, spread evenly over the trip.
     static func remainingDuration(on route: Route, nextStep: Int, left distanceToManeuver: Double) -> Double {
-        guard nextStep > 0, nextStep <= route.steps.count else { return route.duration }
+        let scale = route.duration > 0 ? route.eta / route.duration : 1
+        guard nextStep > 0, nextStep <= route.steps.count else { return route.eta }
         let current = route.steps[nextStep - 1]
         let share = current.distance > 0 ? min(1, distanceToManeuver / current.distance) : 0
-        return current.duration * share + route.steps[nextStep...].reduce(0) { $0 + $1.duration }
+        return (current.duration * share + route.steps[nextStep...].reduce(0) { $0 + $1.duration }) * scale
     }
 
     /// Near the end and on the road: a parallel street 80 m away doesn't count.
