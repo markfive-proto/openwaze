@@ -51,7 +51,7 @@ jobs:
       # v1.0.250 >= 1.0.74, the fix for CVE-2026-47751. SHA verified on upstream main.
       - id: claude
         if: steps.key.outputs.present == 'true'
-        uses: anthropics/claude-code-action@a26b07d8c778b0c43f64618e5fd29fd0f8af72e8 # v1.0.250
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         env:
           GH_TOKEN: ${{ github.token }} # read-only (job permissions above)
         with:
